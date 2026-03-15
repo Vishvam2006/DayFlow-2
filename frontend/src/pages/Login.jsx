@@ -105,11 +105,6 @@ const Login = () => {
         {/* Footer */}
         <p className="text-xs text-center text-gray-400 mt-6">
           © 2026 HRMS. All rights reserved.
-          <p>
-            Admin : admin@gmail.com || admin
-            <br />
-            Employee : employee@gmail.com || employee
-          </p>
         </p>
       </div>
     </div>
