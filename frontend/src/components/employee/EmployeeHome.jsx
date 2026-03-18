@@ -1,233 +1,190 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { NavLink } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { Clock, LogIn, LogOut, CheckCircle2, TrendingUp, CalendarPlus, ClipboardList } from "lucide-react";
+import { useAuth } from "../../context/authContext";
+
+const C = { white: "#fff", bg: "#f4f6f9", border: "#e2e8f0", text: "#0f172a", sub: "#64748b", muted: "#94a3b8", indigo: "#4f46e5", green: "#059669", red: "#dc2626", amber: "#d97706" };
 
 const EmployeeHome = () => {
+  const { user } = useAuth();
   const [checkInTime, setCheckInTime] = useState(null);
   const [timer, setTimer] = useState("00:00:00");
-  const [message, setMessage] = useState("");
-  const [pendingRequests, setPendingRequets] = useState(0);
+  const [message, setMessage] = useState({ text: "", type: "" });
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [attendance, setAttendance] = useState(null);
+  const [myTasksCount, setMyTasksCount] = useState({ total: 0, completed: 0 });
+  const [loading, setLoading] = useState({ in: false, out: false });
+
+  const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
 
   useEffect(() => {
     getTodayAttendance();
-    pendingRequestFunction();
+    fetchPendingLeaves();
+    fetchMyTasks();
   }, []);
 
-  // TIMER LOGIC
   useEffect(() => {
-    // ❌ stop if no check-in OR already checked out
     if (!checkInTime || attendance?.checkOut) return;
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = now - new Date(checkInTime);
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-      setTimer(
-        `${hours.toString().padStart(2, "0")}:${minutes
-          .toString()
-          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
-      );
+    const iv = setInterval(() => {
+      const diff = new Date() - new Date(checkInTime);
+      setTimer(`${String(Math.floor(diff / 3600000)).padStart(2, "0")}:${String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0")}:${String(Math.floor((diff % 60000) / 1000)).padStart(2, "0")}`);
     }, 1000);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, [checkInTime, attendance]);
 
-  const pendingRequestFunction = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/leave/my-leaves", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-
-      if (res.data.success) {
-        setPendingRequets(res.data.count);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  // GET TODAY ATTENDANCE
   const getTodayAttendance = async () => {
     try {
-      const res = await axios.get(
-        "http://localhost:5000/api/attendance/today",
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (res.data.success && res.data.attendance) {
-        setAttendance(res.data.attendance);
-        setCheckInTime(res.data.attendance.checkIn);
-      }
-    } catch (error) {
-      console.log(error);
-    }
+      const r = await axios.get("http://localhost:5000/api/attendance/today", { headers });
+      if (r.data.success && r.data.attendance) { setAttendance(r.data.attendance); setCheckInTime(r.data.attendance.checkIn); }
+    } catch (e) {}
   };
 
-  // CHECK IN
+  const fetchPendingLeaves = async () => {
+    try {
+      const r = await axios.get("http://localhost:5000/api/leave/my-leaves", { headers });
+      if (r.data.success) setPendingRequests(r.data.count);
+    } catch (e) {}
+  };
+
+  const fetchMyTasks = async () => {
+    try {
+      const r = await axios.get("http://localhost:5000/api/task/my-tasks", { headers });
+      if (r.data.success) setMyTasksCount({ total: r.data.tasks.length, completed: r.data.tasks.filter(t => t.status === "Completed").length });
+    } catch (e) {}
+  };
+
+  const showMsg = (text, type) => { setMessage({ text, type }); setTimeout(() => setMessage({ text: "", type: "" }), 3500); };
+
   const handleCheckIn = async () => {
+    setLoading({ ...loading, in: true });
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/attendance/check-in",
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (response.data.success) {
-        setMessage("Checked In Successfully");
-        setCheckInTime(response.data.attendance.checkIn);
-      }
-    } catch (error) {
-      console.log(error);
-    }
+      const r = await axios.post("http://localhost:5000/api/attendance/check-in", {}, { headers });
+      if (r.data.success) { showMsg("Checked in successfully!", "success"); setCheckInTime(r.data.attendance.checkIn); setAttendance(r.data.attendance); }
+    } catch (e) { showMsg(e.response?.data?.message || "Already checked in today", "error"); }
+    setLoading({ ...loading, in: false });
   };
 
-  // CHECK OUT
   const handleCheckOut = async () => {
+    setLoading({ ...loading, out: true });
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/attendance/check-out",
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (response.data.success) {
-        setMessage("Checked Out Successfully");
-      }
-
-      setAttendance(response.data.attendance);
-    } catch (error) {
-      console.log(error);
-    }
+      const r = await axios.post("http://localhost:5000/api/attendance/check-out", {}, { headers });
+      if (r.data.success) { showMsg("Checked out successfully!", "success"); setAttendance(r.data.attendance); }
+    } catch (e) { showMsg(e.response?.data?.message || "Please check in first", "error"); }
+    setLoading({ ...loading, out: false });
   };
+
+  const isWorking = checkInTime && !attendance?.checkOut;
+  const isCheckedOut = !!attendance?.checkOut;
+  const taskProgress = myTasksCount.total > 0 ? (myTasksCount.completed / myTasksCount.total) * 100 : 0;
+  const h = new Date().getHours();
+  const greet = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+
+  const card = { background: C.white, borderRadius: "12px", padding: "20px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" };
 
   return (
-    <>
+    <div style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Header */}
-      <h1 className="text-2xl font-semibold text-slate-800 mb-2">
-        Employee Dashboard
-      </h1>
-
-      <p className="text-sm text-slate-500 mb-4">
-        Overview of your attendance and leave
-      </p>
-
-      {/* SMALL TIMER BAR */}
-      <div className="bg-white border rounded-lg shadow-sm px-4 py-2 mb-6 flex items-center gap-4">
-        <Clock size={18} className="text-gray-500" />
-
-        <p className="text-sm text-gray-600">
-          Check-In:
-          <span className="font-semibold ml-1">
-            {checkInTime ? new Date(checkInTime).toLocaleTimeString() : "--"}
-          </span>
-        </p>
-
-        <p className="text-sm text-gray-600">
-          Working:
-          <span className="font-bold text-green-600 ml-1">{timer}</span>
-        </p>
+      <div style={{ marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: C.text, letterSpacing: "-0.4px" }}>{greet}, {user?.name?.split(" ")[0] || "there"} 👋</h1>
+        <p style={{ color: C.sub, fontSize: "13px", marginTop: "3px" }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
       </div>
+
+      {/* Attendance Banner */}
+      <div style={{
+        ...card, marginBottom: "20px", padding: "20px 24px",
+        background: isCheckedOut ? "#f0fdf4" : isWorking ? "#eff6ff" : C.white,
+        borderColor: isCheckedOut ? "#bbf7d0" : isWorking ? "#bfdbfe" : C.border,
+        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: isWorking ? "#dbeafe" : isCheckedOut ? "#dcfce7" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Clock size={22} color={isWorking ? C.indigo : isCheckedOut ? C.green : C.muted} />
+          </div>
+          <div>
+            <p style={{ fontSize: "11px", fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "2px" }}>Today's Session</p>
+            <p style={{ fontSize: "22px", fontWeight: 700, color: isWorking ? C.indigo : isCheckedOut ? C.green : C.sub, letterSpacing: "0.5px" }}>
+              {isCheckedOut ? `${attendance.workHours?.toFixed(1)}h worked` : isWorking ? timer : "Not started"}
+            </p>
+            {checkInTime && <p style={{ fontSize: "11px", color: C.muted, marginTop: "1px" }}>In: {new Date(checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{isCheckedOut ? ` · Out: ${new Date(attendance.checkOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</p>}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "10px" }}>
+          {!isWorking && !isCheckedOut && (
+            <button onClick={handleCheckIn} disabled={loading.in} style={{ display: "flex", alignItems: "center", gap: "7px", padding: "11px 20px", borderRadius: "9px", border: "none", background: "linear-gradient(135deg,#059669,#34d399)", color: "#fff", fontWeight: 600, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(5,150,105,0.3)" }}>
+              <LogIn size={15} /> {loading.in ? "…" : "Check In"}
+            </button>
+          )}
+          {isWorking && (
+            <button onClick={handleCheckOut} disabled={loading.out} style={{ display: "flex", alignItems: "center", gap: "7px", padding: "11px 20px", borderRadius: "9px", border: "none", background: "linear-gradient(135deg,#dc2626,#f87171)", color: "#fff", fontWeight: 600, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(220,38,38,0.25)" }}>
+              <LogOut size={15} /> {loading.out ? "…" : "Check Out"}
+            </button>
+          )}
+          {isCheckedOut && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", background: "#dcfce7", borderRadius: "9px", border: "1px solid #bbf7d0" }}>
+              <CheckCircle2 size={15} color={C.green} /><span style={{ color: C.green, fontWeight: 600, fontSize: "13px" }}>Day Complete</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Message */}
+      {message.text && (
+        <div style={{ padding: "11px 16px", borderRadius: "9px", marginBottom: "16px", fontSize: "13px", fontWeight: 500, background: message.type === "success" ? "#f0fdf4" : "#fef2f2", border: `1px solid ${message.type === "success" ? "#bbf7d0" : "#fecaca"}`, color: message.type === "success" ? C.green : C.red }}>
+          {message.text}
+        </div>
+      )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <p className="text-sm text-slate-500">Today</p>
-          <h2
-            className={`text-xl font-semibold ${
-              attendance?.status === "Present"
-                ? "text-green-600"
-                : attendance?.status === "Absent"
-                  ? "text-red-600"
-                  : attendance?.checkIn && !attendance?.checkOut
-                    ? "text-blue-600"
-                    : "text-gray-500"
-            }`}
-          >
-            {!attendance
-              ? "Not Checked In"
-              : attendance.checkIn && !attendance.checkOut
-                ? "Working"
-                : attendance.status}
-          </h2>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <p className="text-sm text-slate-500">Leaves Taken</p>
-          <h2 className="text-xl font-semibold">4</h2>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <p className="text-sm text-slate-500">Pending Requests</p>
-          <h2 className="text-xl font-semibold text-yellow-600">
-            {pendingRequests}
-          </h2>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", marginBottom: "20px" }}>
+        {[
+          { label: "Today's Status", value: !attendance ? "Not Checked In" : isWorking ? "Working" : attendance.status, color: !attendance ? C.sub : isWorking ? C.indigo : attendance.status === "Present" ? C.green : C.red },
+          { label: "Pending Leaves", value: pendingRequests, color: C.amber },
+          { label: "Tasks Done", value: `${myTasksCount.completed}/${myTasksCount.total}`, color: C.indigo },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={card}>
+            <p style={{ fontSize: "11px", fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "6px" }}>{label}</p>
+            <p style={{ fontSize: "18px", fontWeight: 700, color }}>{value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Attendance */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <h3 className="font-semibold mb-4">Mark Attendance</h3>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleCheckIn}
-              // disabled={checkInTime}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm cursor-pointer"
-            >
-              Mark Check-In
-            </button>
-
-            <button
-              onClick={handleCheckOut}
-              // disabled={!checkInTime}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm cursor-pointer"
-            >
-              Mark Check-Out
-            </button>
+      {/* Task Progress + Quick Actions */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+            <p style={{ fontSize: "14px", fontWeight: 600, color: C.text }}>Task Progress</p>
+            <TrendingUp size={15} color={C.indigo} />
           </div>
-
-          {message && <p className="text-sm text-green-600 mt-3">{message}</p>}
-        </div>
-
-        {/* Leave */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <h3 className="font-semibold mb-1">Apply for Leave</h3>
-
-          <p className="text-sm text-slate-500 mb-4">
-            Request leave for upcoming days
-          </p>
-
-          <NavLink
-            to="/employee-dashboard/apply-for-leave"
-            className="inline-block px-4 py-2 bg-slate-900 text-white rounded-lg text-sm cursor-pointer"
-          >
-            Apply For Leave
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+            <span style={{ fontSize: "12px", color: C.sub }}>Completed</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: C.indigo }}>{taskProgress.toFixed(0)}%</span>
+          </div>
+          <div style={{ height: "6px", background: "#e2e8f0", borderRadius: "999px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${taskProgress}%`, background: "linear-gradient(90deg,#4f46e5,#6366f1)", borderRadius: "999px", transition: "width 0.5s ease" }} />
+          </div>
+          <p style={{ fontSize: "12px", color: C.muted, marginTop: "10px" }}>{myTasksCount.completed} of {myTasksCount.total} tasks done</p>
+          <NavLink to="/employee-dashboard/tasks" style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "12px", color: C.indigo, fontSize: "12px", fontWeight: 600, textDecoration: "none" }}>
+            <ClipboardList size={13} /> View all tasks →
           </NavLink>
         </div>
+
+        <div style={card}>
+          <p style={{ fontSize: "14px", fontWeight: 600, color: C.text, marginBottom: "14px" }}>Quick Actions</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {[
+              { to: "/employee-dashboard/apply-for-leave", label: "Apply for Leave", color: C.amber, bg: "#fffbeb", border: "#fde68a" },
+              { to: "/employee-dashboard/attendance", label: "View Attendance", color: C.green, bg: "#f0fdf4", border: "#bbf7d0" },
+              { to: "/employee-dashboard/leave-request", label: "Leave History", color: C.indigo, bg: "#eef2ff", border: "#c7d2fe" },
+            ].map(({ to, label, color, bg, border }) => (
+              <NavLink key={to} to={to} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "9px", textDecoration: "none", background: bg, border: `1px solid ${border}`, color, fontSize: "13px", fontWeight: 500, transition: "all 0.15s" }}>
+                {label} <span>→</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

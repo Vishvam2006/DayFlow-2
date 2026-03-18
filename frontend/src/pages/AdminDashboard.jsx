@@ -1,18 +1,15 @@
 import React from "react";
-import StatCard from "../components/dashboard/StatCard.jsx";
 import { useAuth } from "../context/authContext";
 import { Outlet } from "react-router-dom";
 import AdminNavbar from "../components/dashboard/AdminNavbar";
 
 const AdminDashboard = () => {
-  const {user} = useAuth();
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f4f6f9", fontFamily: "'Inter', sans-serif" }}>
       <AdminNavbar />
-
-      <div className="pt-28 px-8 max-w-7xl mx-auto">
+      <main style={{ marginLeft: "256px", flex: 1, padding: "32px 36px", minHeight: "100vh" }}>
         <Outlet />
-      </div>
+      </main>
     </div>
   );
 };

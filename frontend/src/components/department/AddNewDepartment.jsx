@@ -1,92 +1,48 @@
 import axios from "axios";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Building2, CheckCircle2 } from "lucide-react";
+
+const C = { text: "#0f172a", sub: "#475569", border: "#e2e8f0", indigo: "#4f46e5", green: "#059669", card: "#fff" };
+const inp = { width: "100%", padding: "10px 14px", background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "9px", fontSize: "14px", color: C.text, outline: "none" };
 
 const AddNewDepartment = () => {
-  const [department, setDepartment] = useState({
-    dep_name: "",
-    description: "",
-  });
-
+  const [dep, setDep] = useState({ dep_name: "", description: "" });
+  const [done, setDone] = useState(false);
   const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setDepartment({ ...department, [name]: value });
-  };
+  const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/api/department/add",
-        department,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-      if (response.data.success) {
-        navigate("/admin-dashboard/departments");
-      }
-    } catch (error) {
-      if (error.response && !error.response.data.success) {
-        alert(error.response.data.error);
-      }
-    }
+    try { const r = await axios.post("http://localhost:5000/api/department/add", dep, { headers }); if (r.data.success) navigate("/admin-dashboard/departments"); }
+    catch (err) { if (err.response && !err.response.data.success) alert(err.response.data.error); }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 pb-28">
-      {/* Card */}
-      <div className="bg-white w-full max-w-md rounded-lg shadow-md p-6">
-        {/* Title */}
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          Add New Department
-        </h2>
-
-        {/* Form */}
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Department Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Department Name
-            </label>
-            <input
-              type="text"
-              name="dep_name"
-              value={department.dep_name}
-              placeholder="Department Name"
-              onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              rows="4"
-              name="description"
-              value={department.description}
-              placeholder="Description"
-              onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
-
-          {/* Button */}
-          <button
-            type="submit"
-            className="w-full bg-teal-600 text-white py-2 rounded-md font-semibold hover:bg-teal-700 transition"
-          >
-            Add Department
-          </button>
-        </form>
+    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: C.text, letterSpacing: "-0.4px" }}>Add Department</h1>
+        <p style={{ color: C.sub, fontSize: "13px", marginTop: "3px" }}>Create a new organizational unit</p>
       </div>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "500px", background: C.card, border: `1px solid ${C.border}`, borderRadius: "14px", padding: "28px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", gap: "18px" }}>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <div style={{ width: "52px", height: "52px", borderRadius: "12px", background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Building2 size={22} color={C.indigo} />
+          </div>
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: C.sub, marginBottom: "6px" }}>Department Name *</label>
+          <input type="text" required placeholder="e.g. Engineering" style={inp} value={dep.dep_name} onChange={e => setDep({ ...dep, dep_name: e.target.value })} onFocus={e => e.target.style.borderColor = C.indigo} onBlur={e => e.target.style.borderColor = C.border} />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: C.sub, marginBottom: "6px" }}>Description</label>
+          <textarea placeholder="Brief overview of this department…" rows={4} style={{ ...inp, resize: "vertical" }} value={dep.description} onChange={e => setDep({ ...dep, description: e.target.value })} onFocus={e => e.target.style.borderColor = C.indigo} onBlur={e => e.target.style.borderColor = C.border} />
+        </div>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button type="submit" style={{ flex: 1, padding: "11px", borderRadius: "9px", border: "none", background: "linear-gradient(135deg,#4f46e5,#6366f1)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "14px" }}>Create Department</button>
+          <button type="button" onClick={() => navigate("/admin-dashboard/departments")} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${C.border}`, background: "#fff", color: C.sub, fontWeight: 500, cursor: "pointer", fontSize: "14px" }}>Cancel</button>
+        </div>
+      </form>
     </div>
   );
 };

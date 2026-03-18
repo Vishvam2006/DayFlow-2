@@ -4,7 +4,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import PrivateRoutes from "./utils/PrivateRoutes";
 import RoleBasedRoutes from "./utils/RoleBasedRoutes";
-import StatCard from "./components/dashboard/StatCard";
 import Department from "./components/department/Department";
 import DashboardHome from "./components/dashboard/DashboardHome";
 import AddNewDepartment from "./components/department/AddNewDepartment";
@@ -15,6 +14,8 @@ import LeaveRequests from "./components/employee/LeaveRequests";
 import Attendance from "./components/employee/Attendance";
 import Profile from "./components/employee/Profile";
 import AdminLeaves from "./components/AdminLeave/AdminLeave";
+import AdminTaskManager from "./components/tasks/AdminTaskManager";
+import EmployeeTaskBoard from "./components/tasks/EmployeeTaskBoard";
 
 function App() {
   return (
@@ -33,11 +34,11 @@ function App() {
         }
       >
         <Route index element={<DashboardHome />} />
-        <Route index element={<StatCard />}></Route>
-        <Route path="departments" element={<Department />}></Route>
-        <Route path="leaves" element={<AdminLeaves />}></Route>
-        <Route path="add-new-department" element={<AddNewDepartment />}></Route>
-        <Route path="departments/edit/:id" element={<EditDepartment />}></Route>
+        <Route path="departments" element={<Department />} />
+        <Route path="leaves" element={<AdminLeaves />} />
+        <Route path="add-new-department" element={<AddNewDepartment />} />
+        <Route path="departments/edit/:id" element={<EditDepartment />} />
+        <Route path="tasks" element={<AdminTaskManager />} />
       </Route>
 
       <Route
@@ -51,10 +52,11 @@ function App() {
         }
       >
         <Route index element={<EmployeeHome />} />
-        <Route path="apply-for-leave" element={<ApplyForLeave />}></Route>
-        <Route path="leave-request" element={<LeaveRequests />}></Route>
-        <Route path="attendance" element={<Attendance />}></Route>
-        <Route path="profile" element={<Profile />}></Route>
+        <Route path="tasks" element={<EmployeeTaskBoard />} />
+        <Route path="apply-for-leave" element={<ApplyForLeave />} />
+        <Route path="leave-request" element={<LeaveRequests />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
     </Routes>
   );

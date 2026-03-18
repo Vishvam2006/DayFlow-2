@@ -20,6 +20,8 @@ const userSchema = new mongoose.Schema({
         required: true,
     },
     profileImage: String,
+    jobTitle: { type: String, default: "" },
+    bio: { type: String, default: "" },
 }, { timestamps: true });
 
 

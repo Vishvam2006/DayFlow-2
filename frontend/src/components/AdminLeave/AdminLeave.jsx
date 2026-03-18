@@ -1,178 +1,103 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
+import { CheckCircle2, XCircle, Eye, Filter } from "lucide-react";
+
+const C = { text: "#0f172a", sub: "#475569", muted: "#94a3b8", border: "#e2e8f0", indigo: "#4f46e5", green: "#059669", red: "#dc2626", amber: "#d97706", card: "#fff" };
+const S_CFG = { Approved: { bg: "#f0fdf4", text: "#059669", border: "#bbf7d0" }, Rejected: { bg: "#fef2f2", text: "#dc2626", border: "#fecaca" }, Pending: { bg: "#fffbeb", text: "#d97706", border: "#fde68a" } };
 
 const AdminLeaves = () => {
   const [leaves, setLeaves] = useState([]);
-  const [name, setName] = useState("");
-  const [selectedLeave, setSelectedLeave] = useState(null);
+  const [filter, setFilter] = useState("All");
+  const [selected, setSelected] = useState(null);
+  const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
 
-  useEffect(() => {
-    fetchLeaves();
-  }, []);
+  useEffect(() => { fetchLeaves(); }, []);
+  const fetchLeaves = async () => { try { const r = await axios.get("http://localhost:5000/api/leave/leave-requests", { headers }); if (r.data.success) setLeaves(r.data.allLeaves); } catch (e) {} };
+  const update = async (id, status) => { try { const r = await axios.put(`http://localhost:5000/api/leave/update-status/${id}`, { status }, { headers }); if (r.data.success) { fetchLeaves(); setSelected(null); } } catch (e) {} };
 
-  const handleApprove = async (leaveId) => {
-    try {
-      const response = await axios.put(
-        `http://localhost:5000/api/leave/update-status/${leaveId}`,
-        { status: "Approved" },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (response.data.success) {
-        fetchLeaves();
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const handleReject = async (leaveId) => {
-    try {
-      const response = await axios.put(
-        `http://localhost:5000/api/leave/update-status/${leaveId}`,
-        { status: "Rejected" },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (response.data.success) {
-        fetchLeaves();
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const fetchLeaves = async () => {
-    try {
-      const response = await axios.get(
-        "http://localhost:5000/api/leave/leave-requests",
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (response.data.success) {
-        console.log(response.data);
-        setLeaves(response.data.allLeaves);
-        setName(response.data.empName);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  const filtered = filter === "All" ? leaves : leaves.filter(l => l.status === filter);
+  const card = { background: C.card, borderRadius: "12px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" };
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">
-          Leave Requests
-        </h1>
-        <p className="text-sm text-slate-500">
-          Review and manage employee leave requests
-        </p>
+    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+        <div>
+          <h1 style={{ fontSize: "24px", fontWeight: 700, color: C.text, letterSpacing: "-0.4px" }}>Leave Requests</h1>
+          <p style={{ color: C.sub, fontSize: "13px", marginTop: "3px" }}>Review and action employee leave requests</p>
+        </div>
+        <div style={{ display: "flex", gap: "10px" }}>
+          {[{ label: "Pending", value: leaves.filter(l => l.status === "Pending").length, color: C.amber }, { label: "Approved", value: leaves.filter(l => l.status === "Approved").length, color: C.green }].map(({ label, value, color }) => (
+            <div key={label} style={{ ...card, padding: "10px 18px", textAlign: "center", minWidth: "80px" }}>
+              <p style={{ fontSize: "20px", fontWeight: 700, color }}>{value}</p>
+              <p style={{ fontSize: "11px", color: C.muted }}>{label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-100 text-slate-600">
-            <tr>
-              <th className="px-6 py-3 text-left">Employee</th>
-              <th className="px-6 py-3 text-left">Leave Type</th>
-              <th className="px-6 py-3 text-left">Duration</th>
-              <th className="px-6 py-3 text-left">Status</th>
-              <th className="px-6 py-3 text-center">Actions</th>
+      {/* Filters */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "18px" }}>
+        {["All", "Pending", "Approved", "Rejected"].map(f => (
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: "7px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 500, cursor: "pointer", border: "1px solid", borderColor: filter === f ? "#c7d2fe" : C.border, background: filter === f ? "#eef2ff" : "#fff", color: filter === f ? C.indigo : C.sub, transition: "all 0.15s" }}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ ...card, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid #f1f5f9`, background: "#fafafa" }}>
+              {["Employee", "Leave Type", "Duration", "Status", "Actions"].map(h => (
+                <th key={h} style={{ padding: "12px 18px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.8px" }}>{h}</th>
+              ))}
             </tr>
           </thead>
-
           <tbody>
-            {leaves.map((leave) => (
-              <tr key={leave._id} className="border-t">
-                <td className="px-6 py-4 font-medium">{leave.employee.name}</td>
-
-                <td className="px-6 py-4">{leave.leaveType} Leave</td>
-
-                <td className="px-6 py-4">
-                  {leave.fromDate} - {leave.toDate}
-                </td>
-
-                <td className="px-6 py-4">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium 
-                      ${
-                        leave.status === "Approved"
-                          ? "bg-green-100 text-green-700"
-                          : leave.status === "Rejected"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-yellow-100 text-yellow-700"
-                      }`}
-                  >
-                    {leave.status}
-                  </span>
-                </td>
-
-                <td className="px-6 py-4 text-center space-x-2">
-                  <button
-                    onClick={() => setSelectedLeave(leave)}
-                    className="px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300"
-                  >
-                    View
-                  </button>
-
-                  <button
-                    onClick={() => handleApprove(leave._id)}
-                    className="px-3 py-1 text-xs rounded bg-green-500 text-white cursor-pointer"
-                  >
-                    Approve
-                  </button>
-
-                  <button
-                    onClick={() => handleReject(leave._id)}
-                    className="px-3 py-1 text-xs rounded bg-red-500 text-white cursor-pointer"
-                  >
-                    Reject
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filtered.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: "48px", color: C.muted, fontSize: "14px" }}>No requests found</td></tr>}
+            {filtered.map((leave, i) => {
+              const sc = S_CFG[leave.status] || S_CFG.Pending;
+              return (
+                <tr key={leave._id} style={{ borderBottom: i < filtered.length - 1 ? `1px solid #f8fafc` : "none", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = "#fafafa"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <td style={{ padding: "13px 18px", fontWeight: 600, color: C.text, fontSize: "13.5px" }}>{leave.employee?.name || "—"}</td>
+                  <td style={{ padding: "13px 18px", color: C.sub, fontSize: "13px" }}>{leave.leaveType} Leave</td>
+                  <td style={{ padding: "13px 18px", color: C.sub, fontSize: "13px" }}>{leave.fromDate} — {leave.toDate}</td>
+                  <td style={{ padding: "13px 18px" }}><span style={{ padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>{leave.status}</span></td>
+                  <td style={{ padding: "13px 18px" }}>
+                    <div style={{ display: "flex", gap: "5px" }}>
+                      <button onClick={() => setSelected(leave)} style={{ padding: "5px 10px", borderRadius: "6px", border: `1px solid ${C.border}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", gap: "3px", fontSize: "11px" }}><Eye size={11} /> View</button>
+                      {leave.status === "Pending" && (
+                        <>
+                          <button onClick={() => update(leave._id, "Approved")} style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #bbf7d0", background: "#f0fdf4", color: C.green, cursor: "pointer", display: "flex", alignItems: "center", gap: "3px", fontSize: "11px" }}><CheckCircle2 size={11} /> Approve</button>
+                          <button onClick={() => update(leave._id, "Rejected")} style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #fecaca", background: "#fef2f2", color: C.red, cursor: "pointer", display: "flex", alignItems: "center", gap: "3px", fontSize: "11px" }}><XCircle size={11} /> Reject</button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Modal */}
-      {selectedLeave && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center"
-          onClick={() => setSelectedLeave(null)}
-        >
-          <div
-            className="bg-white rounded-xl p-6 w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold mb-2">Leave Reason</h2>
-
-            <p className="text-sm text-slate-600 mb-4">
-              {selectedLeave.reason}
-            </p>
-
-            <div className="flex justify-end">
-              <button
-                onClick={() => setSelectedLeave(null)}
-                className="px-4 py-2 bg-slate-900 text-white rounded text-sm"
-              >
-                Close
-              </button>
+      {selected && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={() => setSelected(null)}>
+          <div style={{ background: "#fff", borderRadius: "16px", padding: "28px", maxWidth: "420px", width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: "17px", fontWeight: 700, color: C.text, marginBottom: "4px" }}>Leave Details</h2>
+            <p style={{ color: C.muted, fontSize: "12px", marginBottom: "20px" }}>{selected.employee?.name}</p>
+            <div style={{ background: "#f8fafc", borderRadius: "10px", padding: "14px 16px", marginBottom: "18px" }}>
+              <p style={{ fontSize: "13px", color: C.sub, lineHeight: 1.7 }}><strong style={{ color: C.text }}>Reason:</strong> {selected.reason || "No reason provided"}</p>
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {selected.status === "Pending" && (
+                <>
+                  <button onClick={() => update(selected._id, "Approved")} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#059669", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "13px" }}>Approve</button>
+                  <button onClick={() => update(selected._id, "Rejected")} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#dc2626", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "13px" }}>Reject</button>
+                </>
+              )}
+              <button onClick={() => setSelected(null)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: `1px solid ${C.border}`, background: "#fff", color: C.sub, fontWeight: 500, cursor: "pointer", fontSize: "13px" }}>Close</button>
             </div>
           </div>
         </div>

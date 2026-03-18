@@ -1,22 +1,62 @@
-import User from "./models/User.js";
 import bcrypt from "bcrypt";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import User from "./models/User.js";
 import connectToDatabase from "./db/db.js";
 
-const userRegister = async() => {
-    await connectToDatabase();
-    try{
-        const hashPassword = await bcrypt.hash("employee", 10);
-        const newUser = new User({
-            name : "Employee2",
-            email : "employee2@gmail.com",
-            password : hashPassword,
-            role : "employee",
-        })
-        await newUser.save();
-    }
-    catch(error){
-        console.log(error);
-    }
-}
+dotenv.config();
 
-userRegister();
+const userSeed = async () => {
+  await connectToDatabase();
+  try {
+    // Clear existing users if any (optional, but good for clean seed)
+    // await User.deleteMany({});
+
+    const adminPassword = await bcrypt.hash("admin123", 10);
+    const employeePassword = await bcrypt.hash("employee123", 10);
+
+    const users = [
+      {
+        name: "Admin User",
+        email: "admin@dayflow.com",
+        password: adminPassword,
+        role: "admin",
+      },
+      {
+        name: "John Doe",
+        email: "john@dayflow.com",
+        password: employeePassword,
+        role: "employee",
+        jobTitle: "Software Developer",
+        bio: "Full-stack developer with a passion for clean code.",
+      },
+      {
+        name: "Jane Smith",
+        email: "jane@dayflow.com",
+        password: employeePassword,
+        role: "employee",
+        jobTitle: "UI/UX Designer",
+        bio: "Designing beautiful and functional interfaces for over 5 years.",
+      },
+    ];
+
+    for (let u of users) {
+      const existing = await User.findOne({ email: u.email });
+      if (existing) {
+        console.log(`⚠️ User ${u.email} already exists, skipping...`);
+        continue;
+      }
+      const newUser = new User(u);
+      await newUser.save();
+      console.log(`✅ Seeded user: ${u.email} (${u.role})`);
+    }
+
+    console.log("📌 Seeding completed successfully!");
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ Seeding error:", error);
+    process.exit(1);
+  }
+};
+
+userSeed();

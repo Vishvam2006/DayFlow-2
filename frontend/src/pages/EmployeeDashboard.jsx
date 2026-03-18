@@ -1,14 +1,12 @@
 import React from "react";
-import EmployeeNavbar from "../components/dashboard/EmployeeNavbar";
-import { NavLink, useNavigate } from "react-router-dom";
 import { Outlet } from "react-router-dom";
+import EmployeeNavbar from "../components/dashboard/EmployeeNavbar";
 
 const EmployeeDashboard = () => {
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f4f6f9", fontFamily: "'Inter', sans-serif" }}>
       <EmployeeNavbar />
-
-      <main className="ml-64 flex-1 p-8">
+      <main style={{ marginLeft: "256px", flex: 1, padding: "32px 36px", minHeight: "100vh" }}>
         <Outlet />
       </main>
     </div>
