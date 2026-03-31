@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
+import OtpLogin from "./pages/OtpLogin";
+import VerifyOtp from "./pages/VerifyOtp";
 import AdminDashboard from "./pages/AdminDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import PrivateRoutes from "./utils/PrivateRoutes";
@@ -23,6 +25,8 @@ function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/login/otp" element={<OtpLogin />} />
+      <Route path="/login/otp/verify" element={<VerifyOtp />} />
 
       <Route
         path="/admin-dashboard"

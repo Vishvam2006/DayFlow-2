@@ -1,7 +1,7 @@
 import axios from "axios";
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
-import { useNavigate } from "react-router-dom";
 import { Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 import API_BASE_URL from "../config/api.js";
 
@@ -189,6 +189,53 @@ const Login = () => {
           font-size: 12px;
           margin-top: 28px;
         }
+        .login-divider {
+          position: relative;
+          margin: 22px 0 18px;
+          text-align: center;
+        }
+        .login-divider::before {
+          content: "";
+          position: absolute;
+          top: 50%;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: #e2e8f0;
+        }
+        .login-divider span {
+          position: relative;
+          display: inline-block;
+          padding: 0 12px;
+          background: #ffffff;
+          color: #94a3b8;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+        .login-otp-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 13px 14px;
+          border-radius: 12px;
+          border: 1.5px solid #cbd5e1;
+          background: #ffffff;
+          color: #334155;
+          font-size: 15px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: border-color 0.2s, background 0.2s, color 0.2s;
+          box-sizing: border-box;
+        }
+        .login-otp-link:hover {
+          border-color: #4f46e5;
+          color: #4f46e5;
+          background: #f8fafc;
+        }
         .login-right {
           flex: 1;
           background: linear-gradient(135deg, #4f46e5, #6366f1);
@@ -312,6 +359,15 @@ const Login = () => {
                 {loading ? "Signing in..." : <>Sign in <ArrowRight size={18} /></>}
               </button>
             </form>
+
+            <div className="login-divider">
+              <span>or</span>
+            </div>
+
+            <Link to="/login/otp" className="login-otp-link">
+              <Mail size={18} />
+              Login via OTP
+            </Link>
 
             <p className="login-footer">© 2026 DayFlow HRMS</p>
           </div>

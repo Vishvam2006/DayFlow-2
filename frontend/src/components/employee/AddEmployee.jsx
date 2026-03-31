@@ -500,9 +500,9 @@ const AddEmployee = ({ onSuccess }) => {
                 <Mail size={15} color="#6366f1" style={{ flexShrink: 0 }} />
 
                 <input
-                  type="text" // ⚠️ change from email → text
-                  inputMode="email" // keeps mobile keyboard correct
-                  name="work_email_random" // ⚠️ important: avoid "email"
+                  type="email"
+                  inputMode="email"
+                  name="email"
                   value={form.email}
                   onChange={handleChange}
                   required
