@@ -1,7 +1,7 @@
 import React from "react";
 import { useAuth } from "../../context/authContext";
 import { useNavigate, NavLink } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, CalendarCheck, CalendarDays, User, LogOut, Zap } from "lucide-react";
+import { LayoutDashboard, ClipboardList, CalendarCheck, CalendarDays, User, LogOut, Zap, Wallet } from "lucide-react";
 
 const EmployeeNavbar = () => {
   const { user, logout } = useAuth();
@@ -13,6 +13,7 @@ const EmployeeNavbar = () => {
     { to: "/employee-dashboard/tasks", icon: ClipboardList, label: "My Tasks" },
     { to: "/employee-dashboard/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/employee-dashboard/leave-request", icon: CalendarDays, label: "Leave" },
+    { to: "/employee-dashboard/payroll", icon: Wallet, label: "Payslips" },
     { to: "/employee-dashboard/profile", icon: User, label: "Profile" },
   ];
 

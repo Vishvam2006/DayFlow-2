@@ -1,5 +1,4 @@
 import Leave from "../models/Leave.js";
-import User from "../models/User.js";
 
 const applyLeave = async (req, res) => {
   try {
@@ -32,6 +31,20 @@ const applyLeave = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Invalid date range",
+      });
+    }
+
+    const overlappingLeave = await Leave.findOne({
+      employee: req.user._id,
+      status: { $in: ["Pending", "Approved"] },
+      fromDate: { $lte: to },
+      toDate: { $gte: from },
+    });
+
+    if (overlappingLeave) {
+      return res.status(409).json({
+        success: false,
+        error: "You already have a leave request for the selected dates",
       });
     }
 
@@ -81,20 +94,15 @@ const showLeave = async (req, res) => {
 const allLeaveRequests = async (req, res) => {
   try {
     const allLeaves = await Leave.find()
-      .populate("employee", "name")
+      .populate("employee", "name email employeeId department")
       .sort({ createdAt: -1 });
 
     const totalLeaves = await Leave.countDocuments();
     const pendingLeaves = await Leave.countDocuments({ status: "Pending" });
 
-    const emp = await User.findById(allLeaves[0].employee);
-
-    const empName = emp.name;
-
     return res.status(200).json({
       success: true,
       allLeaves,
-      empName,
       totalLeaves,
       pendingLeaves,
     });

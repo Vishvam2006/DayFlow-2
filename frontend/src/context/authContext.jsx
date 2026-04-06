@@ -32,6 +32,7 @@ const AuthProvider = ({ children }) => {
                 }
             } catch (error) {
                 setUser(null)
+                localStorage.removeItem("token");
             } finally {
                 setLoading(false)
             }
@@ -43,12 +44,16 @@ const AuthProvider = ({ children }) => {
         setUser(user);
     }
 
+    const updateUser = (nextUser) => {
+        setUser((prev) => ({ ...(prev || {}), ...(nextUser || {}) }));
+    }
+
     const logout = () => {
         setUser(null);
         localStorage.removeItem("token");
     }
     return (
-        <userContext.Provider value={{ user, login, logout, loading }}>
+        <userContext.Provider value={{ user, login, logout, loading, updateUser }}>
             {children}
         </userContext.Provider>
     )

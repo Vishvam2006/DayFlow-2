@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import API_BASE_URL from "../../config/api.js";
+import { formatCurrency, getGrossFromStructure } from "../../utils/payroll.js";
 
 /* ── tiny helpers ─────────────────────────────────────────── */
 const inputStyle = {
@@ -309,6 +310,14 @@ const AddEmployee = ({ onSuccess }) => {
     email: "",
     jobTitle: "",
     department: "",
+    salaryStructure: {
+      basicSalary: "",
+      hra: "",
+      allowances: "",
+      bonus: "",
+      taxDeduction: "",
+      pfDeduction: "",
+    },
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -316,6 +325,12 @@ const AddEmployee = ({ onSuccess }) => {
 
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSalaryChange = (key, value) =>
+    setForm((f) => ({
+      ...f,
+      salaryStructure: { ...f.salaryStructure, [key]: value },
+    }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -339,7 +354,20 @@ const AddEmployee = ({ onSuccess }) => {
       const data = await res.json();
       if (!data.success)
         throw new Error(data.error || "Failed to create employee.");
-      setForm({ name: "", email: "", jobTitle: "", department: "" });
+      setForm({
+        name: "",
+        email: "",
+        jobTitle: "",
+        department: "",
+        salaryStructure: {
+          basicSalary: "",
+          hra: "",
+          allowances: "",
+          bonus: "",
+          taxDeduction: "",
+          pfDeduction: "",
+        },
+      });
       setCredentials(data.credentials);
     } catch (err) {
       setError(err.message);
@@ -367,7 +395,7 @@ const AddEmployee = ({ onSuccess }) => {
           background: "#fff",
           borderRadius: "16px",
           border: "1px solid #e2e8f0",
-          maxWidth: "560px",
+          maxWidth: "860px",
           boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
           fontFamily: "'Inter', sans-serif",
           overflow: "hidden",
@@ -555,6 +583,52 @@ const AddEmployee = ({ onSuccess }) => {
                 onFocus={(e) => (e.target.style.border = "1.5px solid #4f46e5")}
                 onBlur={(e) => (e.target.style.border = "1.5px solid #e2e8f0")}
               />
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "10px",
+                }}
+              >
+                <label style={labelStyle}>Salary Structure</label>
+                <span style={{ fontSize: "12px", color: "#4f46e5", fontWeight: 600 }}>
+                  Gross: {formatCurrency(getGrossFromStructure(form.salaryStructure))}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "12px",
+                }}
+              >
+                {[
+                  ["basicSalary", "Basic"],
+                  ["hra", "HRA"],
+                  ["allowances", "Allowances"],
+                  ["bonus", "Bonus"],
+                  ["taxDeduction", "Tax"],
+                  ["pfDeduction", "PF"],
+                ].map(([key, label]) => (
+                  <div key={key}>
+                    <label style={labelStyle}>{label}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={form.salaryStructure[key]}
+                      onChange={(e) => handleSalaryChange(key, e.target.value)}
+                      style={inputStyle}
+                      onFocus={(e) => (e.target.style.border = "1.5px solid #4f46e5")}
+                      onBlur={(e) => (e.target.style.border = "1.5px solid #e2e8f0")}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

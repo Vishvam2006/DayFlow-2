@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { normalizeSalaryStructure } from "../utils/payroll.js";
 
 // Helper: generate a secure random password
 const generatePassword = () => {
@@ -18,7 +19,7 @@ const generateEmployeeId = () => {
 const getEmployees = async (req, res) => {
   try {
     const employees = await User.find({ role: "employee" }).select(
-      "name email jobTitle department employeeId profileImage createdAt"
+      "name email jobTitle department employeeId profileImage createdAt salaryStructure"
     );
     return res.status(200).json({
       success: true,
@@ -35,7 +36,7 @@ const getEmployees = async (req, res) => {
 // POST /api/employee/add  — admin only
 const addEmployee = async (req, res) => {
   try {
-    const { name, email, jobTitle, department } = req.body;
+    const { name, email, jobTitle, department, salaryStructure = {} } = req.body;
 
     // Validate required fields
     if (!name || !email) {
@@ -68,6 +69,7 @@ const addEmployee = async (req, res) => {
       jobTitle: jobTitle?.trim() || "",
       department: department?.trim() || "",
       employeeId,
+      salaryStructure: normalizeSalaryStructure(salaryStructure),
     });
 
     return res.status(201).json({
@@ -103,4 +105,27 @@ const deleteEmployee = async (req, res) => {
   }
 };
 
-export { getEmployees, addEmployee, deleteEmployee };
+const updateEmployeeSalaryStructure = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const employee = await User.findOne({ _id: id, role: "employee" });
+    if (!employee) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Employee not found." });
+    }
+
+    employee.salaryStructure = normalizeSalaryStructure(req.body);
+    await employee.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Salary structure updated successfully.",
+      employee,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export { getEmployees, addEmployee, deleteEmployee, updateEmployeeSalaryStructure };

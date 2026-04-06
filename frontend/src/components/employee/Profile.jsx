@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../../context/authContext";
-import { Camera, Save, X, User, Mail, Briefcase, FileText } from "lucide-react";
+import { Camera, Save, X, User, Mail, Briefcase, FileText, Lock, ShieldCheck } from "lucide-react";
 import API_BASE_URL from "../../config/api.js";
 
 const C = { text: "#0f172a", sub: "#475569", muted: "#94a3b8", border: "#e2e8f0", indigo: "#4f46e5", green: "#059669", bg: "#f4f6f9", card: "#fff" };
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({ name: "", jobTitle: "", bio: "" });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordState, setPasswordState] = useState({ loading: false, error: "", success: "" });
 
   const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
 
@@ -60,9 +62,29 @@ const Profile = () => {
         setSavedMsg(true);
         setTimeout(() => setSavedMsg(false), 3000);
         if (r.data.user?.profileImage) setPreview(`${API_BASE_URL}/${r.data.user.profileImage}`);
+        updateUser(r.data.user);
       }
     } catch (e) { console.log(e); }
     setSaving(false);
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPasswordState({ loading: true, error: "", success: "" });
+
+    try {
+      const r = await axios.put(`${API_BASE_URL}/api/profile/change-password`, passwordForm, { headers });
+      if (r.data.success) {
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setPasswordState({ loading: false, error: "", success: r.data.message || "Password updated successfully." });
+      }
+    } catch (error) {
+      setPasswordState({
+        loading: false,
+        error: error.response?.data?.message || "Unable to change password right now.",
+        success: "",
+      });
+    }
   };
 
   const inputStyle = { width: "100%", padding: "10px 14px", background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "9px", fontSize: "14px", color: C.text, outline: "none" };
@@ -180,6 +202,71 @@ const Profile = () => {
             </div>
           ))}
         </div>
+      </div>
+
+      <div style={{ ...card, marginTop: "16px", padding: "22px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+          <div style={{ width: "38px", height: "38px", borderRadius: "11px", background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <ShieldCheck size={17} color={C.indigo} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: C.text }}>Change Password</h2>
+            <p style={{ fontSize: "12px", color: C.sub, marginTop: "2px" }}>Use a strong password with uppercase, lowercase, number, and symbol.</p>
+          </div>
+        </div>
+
+        {passwordState.error ? (
+          <div style={{ padding: "11px 14px", borderRadius: "9px", marginBottom: "14px", background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "13px" }}>
+            {passwordState.error}
+          </div>
+        ) : null}
+
+        {passwordState.success ? (
+          <div style={{ padding: "11px 14px", borderRadius: "9px", marginBottom: "14px", background: "#f0fdf4", border: "1px solid #bbf7d0", color: C.green, fontSize: "13px" }}>
+            {passwordState.success}
+          </div>
+        ) : null}
+
+        <form onSubmit={handlePasswordChange} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+          {[
+            { key: "currentPassword", label: "Current Password" },
+            { key: "newPassword", label: "New Password" },
+            { key: "confirmPassword", label: "Confirm Password" },
+          ].map((field, index) => (
+            <div key={field.key} style={index === 2 ? { gridColumn: "1 / -1" } : undefined}>
+              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: C.sub, marginBottom: "6px" }}>{field.label}</label>
+              <div style={{ position: "relative" }}>
+                <Lock size={14} color={C.muted} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
+                <input
+                  type="password"
+                  value={passwordForm[field.key]}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, [field.key]: e.target.value })}
+                  style={{ ...inputStyle, paddingLeft: "36px" }}
+                  onFocus={e => e.target.style.borderColor = C.indigo}
+                  onBlur={e => e.target.style.borderColor = C.border}
+                />
+              </div>
+            </div>
+          ))}
+          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="submit"
+              disabled={passwordState.loading}
+              style={{
+                padding: "10px 18px",
+                borderRadius: "10px",
+                border: "none",
+                background: "linear-gradient(135deg,#4f46e5,#6366f1)",
+                color: "#fff",
+                fontWeight: 600,
+                cursor: "pointer",
+                opacity: passwordState.loading ? 0.7 : 1,
+              }}
+            >
+              {passwordState.loading ? "Updating..." : "Update Password"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

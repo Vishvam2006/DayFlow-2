@@ -8,12 +8,17 @@ const RoleBasedRoutes = ({ children, requiredRole }) => {
         return <div>Loading...</div>
     }
 
-    if (!requiredRole.includes(user.role)) {
-        return <Navigate to={"/unauthorized"} replace />
-    }
-
     if (!user) {
         return <Navigate to={"/login"} replace />;
+    }
+
+    if (!requiredRole.includes(user.role)) {
+        return (
+          <Navigate
+            to={user.role === "admin" ? "/admin-dashboard" : "/employee-dashboard"}
+            replace
+          />
+        )
     }
 
 

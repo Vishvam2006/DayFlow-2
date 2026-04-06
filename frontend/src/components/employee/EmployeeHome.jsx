@@ -4,6 +4,7 @@ import { NavLink } from "react-router-dom";
 import { Clock, LogIn, LogOut, CheckCircle2, TrendingUp, CalendarPlus, ClipboardList } from "lucide-react";
 import { useAuth } from "../../context/authContext";
 import API_BASE_URL from "../../config/api.js";
+import { formatCurrency, getCurrentMonthValue } from "../../utils/payroll.js";
 
 const C = { white: "#fff", bg: "#f4f6f9", border: "#e2e8f0", text: "#0f172a", sub: "#64748b", muted: "#94a3b8", indigo: "#4f46e5", green: "#059669", red: "#dc2626", amber: "#d97706" };
 
@@ -16,6 +17,7 @@ const EmployeeHome = () => {
   const [attendance, setAttendance] = useState(null);
   const [myTasksCount, setMyTasksCount] = useState({ total: 0, completed: 0 });
   const [loading, setLoading] = useState({ in: false, out: false });
+  const [latestPayroll, setLatestPayroll] = useState(null);
 
   const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
 
@@ -23,6 +25,7 @@ const EmployeeHome = () => {
     getTodayAttendance();
     fetchPendingLeaves();
     fetchMyTasks();
+    fetchPayroll();
   }, []);
 
   useEffect(() => {
@@ -52,6 +55,18 @@ const EmployeeHome = () => {
     try {
       const r = await axios.get(`${API_BASE_URL}/api/task/my-tasks`, { headers });
       if (r.data.success) setMyTasksCount({ total: r.data.tasks.length, completed: r.data.tasks.filter(t => t.status === "Completed").length });
+    } catch (e) {}
+  };
+
+  const fetchPayroll = async () => {
+    try {
+      const r = await axios.get(`${API_BASE_URL}/api/payroll/me`, {
+        headers,
+        params: { month: getCurrentMonthValue() },
+      });
+      if (r.data.success) {
+        setLatestPayroll(r.data.payrolls?.[0] || null);
+      }
     } catch (e) {}
   };
 
@@ -142,6 +157,7 @@ const EmployeeHome = () => {
           { label: "Today's Status", value: !attendance ? "Not Checked In" : isWorking ? "Working" : attendance.status, color: !attendance ? C.sub : isWorking ? C.indigo : attendance.status === "Present" ? C.green : C.red },
           { label: "Pending Leaves", value: pendingRequests, color: C.amber },
           { label: "Tasks Done", value: `${myTasksCount.completed}/${myTasksCount.total}`, color: C.indigo },
+          { label: "This Month Pay", value: latestPayroll ? formatCurrency(latestPayroll.breakdown.netSalary) : "Pending", color: latestPayroll ? C.green : C.sub },
         ].map(({ label, value, color }) => (
           <div key={label} style={card}>
             <p style={{ fontSize: "11px", fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "6px" }}>{label}</p>
@@ -177,6 +193,7 @@ const EmployeeHome = () => {
               { to: "/employee-dashboard/apply-for-leave", label: "Apply for Leave", color: C.amber, bg: "#fffbeb", border: "#fde68a" },
               { to: "/employee-dashboard/attendance", label: "View Attendance", color: C.green, bg: "#f0fdf4", border: "#bbf7d0" },
               { to: "/employee-dashboard/leave-request", label: "Leave History", color: C.indigo, bg: "#eef2ff", border: "#c7d2fe" },
+              { to: "/employee-dashboard/payroll", label: "View Payslips", color: C.red, bg: "#fef2f2", border: "#fecaca" },
             ].map(({ to, label, color, bg, border }) => (
               <NavLink key={to} to={to} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "9px", textDecoration: "none", background: bg, border: `1px solid ${border}`, color, fontSize: "13px", fontWeight: 500, transition: "all 0.15s" }}>
                 {label} <span>→</span>

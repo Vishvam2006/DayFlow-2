@@ -19,6 +19,8 @@ import AdminLeaves from "./components/AdminLeave/AdminLeave";
 import AdminTaskManager from "./components/tasks/AdminTaskManager";
 import EmployeeTaskBoard from "./components/tasks/EmployeeTaskBoard";
 import EmployeeManagement from "./components/employee/EmployeeManagement";
+import AdminPayroll from "./components/payroll/AdminPayroll";
+import EmployeePayroll from "./components/payroll/EmployeePayroll";
 
 function App() {
   return (
@@ -45,6 +47,8 @@ function App() {
         <Route path="departments/edit/:id" element={<EditDepartment />} />
         <Route path="tasks" element={<AdminTaskManager />} />
         <Route path="employees" element={<EmployeeManagement />} />
+        <Route path="payroll" element={<AdminPayroll />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       <Route
@@ -63,6 +67,7 @@ function App() {
         <Route path="leave-request" element={<LeaveRequests />} />
         <Route path="attendance" element={<Attendance />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="payroll" element={<EmployeePayroll />} />
       </Route>
     </Routes>
   );

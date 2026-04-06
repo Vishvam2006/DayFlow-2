@@ -1,7 +1,7 @@
 import React from "react";
 import { useAuth } from "../../context/authContext";
 import { useNavigate, NavLink } from "react-router-dom";
-import { LayoutDashboard, Building2, CalendarCheck, CheckSquare, LogOut, Zap, Users } from "lucide-react";
+import { LayoutDashboard, Building2, CalendarCheck, CheckSquare, LogOut, Zap, Users, Wallet, User } from "lucide-react";
 
 const AdminNavbar = () => {
   const { user, logout } = useAuth();
@@ -14,6 +14,8 @@ const AdminNavbar = () => {
     { to: "/admin-dashboard/departments", icon: Building2, label: "Departments" },
     { to: "/admin-dashboard/leaves", icon: CalendarCheck, label: "Leave Requests" },
     { to: "/admin-dashboard/tasks", icon: CheckSquare, label: "Task Manager" },
+    { to: "/admin-dashboard/payroll", icon: Wallet, label: "Payroll" },
+    { to: "/admin-dashboard/profile", icon: User, label: "Profile" },
   ];
 
   return (

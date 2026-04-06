@@ -82,6 +82,7 @@ const DashboardHome = () => {
             { label: "Manage Departments", path: "/admin-dashboard/departments", color: "#4f46e5", bg: "#eef2ff" },
             { label: "Review Leaves", path: "/admin-dashboard/leaves", color: "#d97706", bg: "#fffbeb" },
             { label: "Assign Tasks", path: "/admin-dashboard/tasks", color: "#059669", bg: "#ecfdf5" },
+            { label: "Run Payroll", path: "/admin-dashboard/payroll", color: "#dc2626", bg: "#fef2f2" },
           ].map(({ label, path, color, bg }) => (
             <button key={path} onClick={() => navigate(path)} style={{
               display: "flex", alignItems: "center", gap: "6px",

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import authRouter from "./routes/auth.js";
 import departmentRouter from "./routes/department.js";
@@ -9,6 +10,7 @@ import leaveRouter from "./routes/leave.js";
 import attendanceRouter from "./routes/attendance.js";
 import profileRouter from "./routes/profile.js";
 import taskRouter from "./routes/task.js";
+import payrollRouter from "./routes/payroll.js";
 import connectToDatabase from "./db/db.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +41,15 @@ app.use("/api/leave", leaveRouter);
 app.use("/api/attendance", attendanceRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/task", taskRouter);
+app.use("/api/payroll", payrollRouter);
+
+const frontendDistPath = path.resolve(__dirname, "../frontend/dist");
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+  });
+}
 
 app.listen(port, () => {
   console.log(`✅ Server running on port ${port}`);

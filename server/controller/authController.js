@@ -10,9 +10,25 @@ dotenv.config();
 
 const otpStore = new Map();
 
+const buildAuthUser = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  jobTitle: user.jobTitle || "",
+  department: user.department || "",
+  employeeId: user.employeeId || "",
+  bio: user.bio || "",
+  profileImage: user.profileImage || "",
+});
+
 const sendOtpLogin = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
 
     const user = await User.findOne({ email });
 
@@ -42,7 +58,8 @@ const sendOtpLogin = async (req, res) => {
 
 const verifyOtpLogin = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
+    const { otp } = req.body;
 
     const record = otpStore.get(email);
 
@@ -62,6 +79,9 @@ const verifyOtpLogin = async (req, res) => {
     otpStore.delete(email);
 
     const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const token = jwt.sign(
       { _id: user._id, role: user.role },
@@ -72,7 +92,7 @@ const verifyOtpLogin = async (req, res) => {
     return res.status(200).json({
       success: true,
       token,
-      user: { _id: user._id, name: user.name, role: user.role },
+      user: buildAuthUser(user),
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -81,7 +101,16 @@ const verifyOtpLogin = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
+    const { password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required",
+      });
+    }
+
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
@@ -89,7 +118,7 @@ const login = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(404).json({ success: false, error: "Wrong Password" });
+      return res.status(401).json({ success: false, error: "Wrong Password" });
     }
 
     const token = jwt.sign(
@@ -101,7 +130,7 @@ const login = async (req, res) => {
     return res.status(200).json({
       success: true,
       token,
-      user: { _id: user._id, name: user.name, role: user.role },
+      user: buildAuthUser(user),
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });

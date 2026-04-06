@@ -4,6 +4,7 @@ import {
   Briefcase, Building2, BadgeCheck, AlertTriangle,
 } from "lucide-react";
 import API_BASE_URL from "../../config/api.js";
+import { formatCurrency, getGrossFromStructure } from "../../utils/payroll.js";
 
 const EmployeeList = ({ refreshKey }) => {
   const [employees, setEmployees] = useState([]);
@@ -242,6 +243,12 @@ const EmployeeList = ({ refreshKey }) => {
                     <span style={{ fontSize: "12.5px", color: "#475569" }}>{emp.department}</span>
                   </div>
                 )}
+                <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                  <Briefcase size={12} color="#94a3b8" />
+                  <span style={{ fontSize: "12.5px", color: "#475569" }}>
+                    Gross {formatCurrency(getGrossFromStructure(emp.salaryStructure))}
+                  </span>
+                </div>
               </div>
 
               {/* Status badge */}
