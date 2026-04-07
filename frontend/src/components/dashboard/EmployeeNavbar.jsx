@@ -1,72 +1,96 @@
 import React from "react";
 import { useAuth } from "../../context/authContext";
 import { useNavigate, NavLink } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, CalendarCheck, CalendarDays, User, LogOut, Zap, Wallet } from "lucide-react";
+import { SquaresFour, ClipboardText, CalendarCheck, CalendarBlank, UserCircle, SignOut, Lightning, Wallet, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import API_BASE_URL from "../../config/api.js";
 
-const EmployeeNavbar = () => {
+const EmployeeNavbar = ({ isCollapsed, setIsCollapsed }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const handleLogout = () => { logout(); navigate("/login"); };
 
   const navItems = [
-    { to: "/employee-dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
-    { to: "/employee-dashboard/tasks", icon: ClipboardList, label: "My Tasks" },
+    { to: "/employee-dashboard", icon: SquaresFour, label: "Dashboard", end: true },
+    { to: "/employee-dashboard/tasks", icon: ClipboardText, label: "My Tasks" },
     { to: "/employee-dashboard/attendance", icon: CalendarCheck, label: "Attendance" },
-    { to: "/employee-dashboard/leave-request", icon: CalendarDays, label: "Leave" },
+    { to: "/employee-dashboard/leave-request", icon: CalendarBlank, label: "Leave" },
     { to: "/employee-dashboard/payroll", icon: Wallet, label: "Payslips" },
-    { to: "/employee-dashboard/profile", icon: User, label: "Profile" },
+    { to: "/employee-dashboard/profile", icon: UserCircle, label: "Profile" },
   ];
 
   return (
-    <aside style={{ width: "256px", height: "100vh", background: "#fff", borderRight: "1px solid #e2e8f0", position: "fixed", left: 0, top: 0, display: "flex", flexDirection: "column", fontFamily: "'Inter', sans-serif", zIndex: 50, boxShadow: "2px 0 8px rgba(0,0,0,0.04)" }}>
+    <aside className={`h-screen bg-[var(--color-sidebar)] border-r border-[var(--color-border)] fixed left-0 top-0 flex flex-col z-[60] shadow-sm transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${isCollapsed ? 'w-[80px]' : 'w-64'}`}>
+      
+      {/* Toggle Button */}
+      <button 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3.5 top-8 bg-white border border-[var(--color-border)] text-slate-500 rounded-full p-1.5 hover:text-slate-800 hover:bg-slate-50 hover:shadow-md transition-all z-[70] cursor-pointer shadow-sm"
+      >
+        {isCollapsed ? <CaretRight size={14} weight="bold" /> : <CaretLeft size={14} weight="bold" />}
+      </button>
+
       {/* Brand */}
-      <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #f1f5f9" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ width: "34px", height: "34px", borderRadius: "9px", background: "linear-gradient(135deg,#4f46e5,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Zap size={16} color="white" />
+      <div className={`p-6 pb-5 border-b border-[var(--color-border)] flex flex-col gap-1.5 overflow-hidden ${isCollapsed ? 'items-center px-0' : ''}`}>
+        {!isCollapsed ? (
+          <>
+            <img src="/logo-full.png" alt="DayFlow HRMS" className="h-[34px] object-contain self-start -ml-1 transition-opacity duration-300" />
+            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider pl-1 whitespace-nowrap">Employee Portal</p>
+          </>
+        ) : (
+          <div className="w-[34px] h-[34px] bg-[var(--color-sidebar)] border border-slate-200 rounded-lg flex items-center justify-center shrink-0">
+            <img src="/logo-full.png" alt="Icon" className="h-[20px] object-contain object-left overflow-hidden w-[20px]" />
           </div>
-          <div>
-            <p style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>DayFlow</p>
-            <p style={{ fontSize: "10px", color: "#059669", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.6px" }}>Employee Portal</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "14px 12px", overflowY: "auto" }}>
-        <p style={{ fontSize: "10px", fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", padding: "0 8px 8px" }}>Menu</p>
-        {navItems.map(({ to, icon: Icon, label, end }) => (
-          <NavLink key={to} to={to} end={end} style={({ isActive }) => ({
-            display: "flex", alignItems: "center", gap: "10px",
-            padding: "10px 10px", borderRadius: "9px", marginBottom: "3px",
-            textDecoration: "none", fontSize: "13.5px", fontWeight: isActive ? 600 : 400,
-            background: isActive ? "#ecfdf5" : "transparent",
-            color: isActive ? "#059669" : "#475569",
-            border: isActive ? "1px solid #d1fae5" : "1px solid transparent",
-            transition: "all 0.15s",
-          })}>
-            <Icon size={15} />
-            {label}
-          </NavLink>
-        ))}
+      <nav className={`flex-1 py-4 overflow-y-auto ${isCollapsed ? 'px-2' : 'px-3'}`}>
+        {!isCollapsed && <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-[1px] px-2 pb-2">Menu</p>}
+        <div className="flex flex-col space-y-[4px]">
+          {navItems.map(({ to, icon: Icon, label, end }) => (
+            <NavLink key={to} to={to} end={end} 
+              className={({ isActive }) => `
+                flex items-center gap-3 py-2.5 rounded-[var(--radius-sm)] text-[13.5px] transition-all duration-200 border
+                ${isActive 
+                  ? "bg-[var(--color-accent-bg)] text-[var(--color-text-primary)] font-medium border-indigo-100/50 shadow-sm" 
+                  : "text-[var(--color-text-secondary)] border-transparent hover:bg-slate-50"}
+                ${isCollapsed ? 'justify-center px-0' : 'px-3'}
+              `}>
+              {({ isActive }) => (
+                <>
+                  <Icon size={isCollapsed ? 20 : 18} weight={isActive ? "fill" : "regular"} className="shrink-0" />
+                  {!isCollapsed && <span className="whitespace-nowrap tracking-wide overflow-hidden">{label}</span>}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: "14px 12px 18px", borderTop: "1px solid #f1f5f9" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", borderRadius: "9px", background: "#f8fafc", marginBottom: "8px" }}>
-          <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#059669)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "white", fontSize: "13px", flexShrink: 0 }}>
-            {(user?.name || "E").charAt(0).toUpperCase()}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.name || "Employee"}</p>
-            <p style={{ fontSize: "11px", color: "#059669" }}>Team Member</p>
-          </div>
+      <div className={`p-4 border-t border-[var(--color-border)] ${isCollapsed ? 'px-2' : ''}`}>
+        <div className={`flex items-center gap-3 p-2 rounded-[var(--radius-sm)] bg-[var(--color-page)] mb-3 border border-[var(--color-border)] ${isCollapsed ? 'justify-center bg-transparent border-transparent' : ''}`}>
+          {user?.profileImage ? (
+            <img 
+              src={user.profileImage.startsWith('http') ? user.profileImage : `${API_BASE_URL}/${user.profileImage}`} 
+              alt="Profile" 
+              className={`rounded shrink-0 object-cover border border-[var(--color-border)] ${isCollapsed ? 'w-10 h-10 shadow-sm' : 'w-8 h-8'}`}
+            />
+          ) : (
+            <div className={`rounded shrink-0 bg-slate-800 flex items-center justify-center font-bold text-white ${isCollapsed ? 'w-10 h-10 text-[15px]' : 'w-8 h-8 text-[13px]'}`}>
+              {(user?.name || "E").charAt(0).toUpperCase()}
+            </div>
+          )}
+          {!isCollapsed && (
+            <div className="min-w-0 overflow-hidden">
+              <p className="text-[13px] font-semibold text-[var(--color-text-primary)] truncate">{user?.name || "Employee"}</p>
+              <p className="text-[11px] text-[var(--color-text-secondary)]">Team Member</p>
+            </div>
+          )}
         </div>
-        <button onClick={handleLogout} style={{ width: "100%", display: "flex", alignItems: "center", gap: "8px", padding: "9px 10px", borderRadius: "9px", border: "1px solid #fee2e2", background: "#fef2f2", color: "#dc2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", transition: "all 0.15s" }}
-          onMouseEnter={e => e.currentTarget.style.background = "#fee2e2"}
-          onMouseLeave={e => e.currentTarget.style.background = "#fef2f2"}
-        >
-          <LogOut size={13} /> Sign Out
+        <button onClick={handleLogout} 
+          className={`flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-red-200 bg-red-50 text-red-600 text-[13px] font-medium transition-colors hover:bg-red-100 cursor-pointer ${isCollapsed ? 'w-10 h-10 mx-auto' : 'w-full px-3 py-2'}`}>
+          <SignOut size={16} weight="bold" className="shrink-0" /> {!isCollapsed && <span className="whitespace-nowrap">Sign Out</span>}
         </button>
       </div>
     </aside>

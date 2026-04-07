@@ -1,394 +1,336 @@
 import axios from "axios";
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
-import { Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
+import { EnvelopeSimple, Lock, ArrowRight, ShieldCheck } from "@phosphor-icons/react";
+import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from "framer-motion";
 import API_BASE_URL from "../config/api.js";
+
+const useGreeting = () => {
+  const [greeting, setGreeting] = useState("Welcome back");
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting("Good morning");
+    else if (hour < 18) setGreeting("Good afternoon");
+    else setGreeting("Good evening");
+  }, []);
+
+  return greeting;
+};
+
+const ParallaxHero = () => {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    x.set((e.clientX - centerX) / (rect.width / 2));
+    y.set((e.clientY - centerY) / (rect.height / 2));
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  const springConfig = { damping: 25, stiffness: 150, mass: 0.5 };
+  const smoothX = useSpring(x, springConfig);
+  const smoothY = useSpring(y, springConfig);
+
+  const badgeOffsetX = useTransform(smoothX, [-1, 1], [20, -20]);
+  const badgeOffsetY = useTransform(smoothY, [-1, 1], [20, -20]);
+
+  const blobX1 = useTransform(smoothX, [-1, 1], [-30, 30]);
+  const blobY1 = useTransform(smoothY, [-1, 1], [-30, 30]);
+  
+  const blobX2 = useTransform(smoothX, [-1, 1], [30, -30]);
+  const blobY2 = useTransform(smoothY, [-1, 1], [30, -30]);
+
+  return (
+    <div 
+      className="hidden lg:flex flex-1 bg-slate-900 relative overflow-hidden items-center justify-center text-white p-12"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      <motion.div 
+        style={{ x: blobX1, y: blobY1 }}
+        className="absolute w-[500px] h-[500px] bg-slate-800 rounded-full blur-[100px] -top-[100px] -right-[100px] opacity-60 pointer-events-none" 
+      />
+      <motion.div 
+        style={{ x: blobX2, y: blobY2 }}
+        className="absolute w-[400px] h-[400px] bg-slate-800 rounded-full blur-[100px] -bottom-[100px] -left-[100px] opacity-60 pointer-events-none" 
+      />
+      
+      <div className="relative z-10 max-w-[440px] text-center pointer-events-none">
+        <motion.div 
+          animate={{ y: [-4, 4, -4] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          className="mb-8 flex justify-center text-slate-300 pointer-events-auto items-center h-[72px]"
+        >
+          <img src="/logo-full.png" alt="DayFlow HRMS" className="h-[64px] object-contain invert brightness-0 filter drop-shadow-lg" />
+        </motion.div>
+        <h2 className="text-[36px] font-bold mb-4 tracking-tight leading-tight pointer-events-auto" style={{ textShadow: "0 4px 24px rgba(0,0,0,0.4)" }}>
+          The modern way to manage people
+        </h2>
+        <p className="text-[17px] text-slate-300 leading-relaxed mb-10 pointer-events-auto">
+          Streamline your HR operations with our professional platform for attendance, tasks, and more.
+        </p>
+        
+        <motion.div 
+          style={{ x: badgeOffsetX, y: badgeOffsetY }}
+          className="flex flex-wrap justify-center gap-3 pointer-events-auto"
+        >
+          {["Real-time Tracking", "Smart Leaves", "Task Analytics"].map((f) => (
+            <span 
+              key={f} 
+              className="bg-slate-800/80 px-4 py-2 rounded-full text-[13px] font-semibold border border-slate-700 backdrop-blur-sm shadow-lg hover:bg-slate-700/80 transition-colors"
+            >
+              {f}
+            </span>
+          ))}
+        </motion.div>
+      </div>
+    </div>
+  );
+};
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loginMode, setLoginMode] = useState("password"); // "password" | "otp"
+  
   const { login } = useAuth();
   const navigate = useNavigate();
+  const greeting = useGreeting();
+
+  const isB2bDomain = useMemo(() => {
+    if (!email || !email.includes('@')) return false;
+    const domain = email.split('@')[1].toLowerCase();
+    const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'];
+    return domain.includes('.') && !genericDomains.includes(domain);
+  }, [email]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setMessage(null);
+
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password });
-      if (response.data.success) {
-        login(response.data.user);
-        localStorage.setItem("token", response.data.token);
-        navigate(response.data.user.role === "admin" ? "/admin-dashboard" : "/employee-dashboard");
+      if (loginMode === "password") {
+        const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password });
+        if (response.data.success) {
+          login(response.data.user);
+          localStorage.setItem("token", response.data.token);
+          navigate(response.data.user.role === "admin" ? "/admin-dashboard" : "/employee-dashboard");
+        }
+      } else {
+        const response = await axios.post(`${API_BASE_URL}/api/auth/login/send-otp`, { email });
+        sessionStorage.setItem("otpLoginEmail", email);
+        setMessage(response.data.message || "OTP sent successfully. Redirecting...");
+        setTimeout(() => {
+          navigate("/login/otp/verify", { state: { email } });
+        }, 1200);
       }
     } catch (err) {
-      setError(err.response?.data?.error || "Server error. Please try again.");
+      if (loginMode === "password") {
+        setError(err.response?.data?.error || "Server error. Please try again.");
+      } else {
+        setError(err.response?.data?.message || "Unable to send OTP right now.");
+      }
     } finally {
-      setLoading(false);
+      if (loginMode === "password") {
+        setLoading(false);
+      }
     }
   };
 
   return (
-    <>
-      <style>{`
-        .login-page {
-          min-height: 100vh;
-          display: flex;
-          background: #f8fafc;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .login-left {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 40px;
-        }
-        .login-card {
-          width: 100%;
-          max-width: 420px;
-          background: #ffffff;
-          border-radius: 20px;
-          padding: 40px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.06);
-          border: 1px solid #f1f5f9;
-        }
-        .login-brand {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 40px;
-        }
-        .login-brand-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 12px;
-          background: #4f46e5;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          flex-shrink: 0;
-        }
-        .login-brand-name {
-          font-weight: 800;
-          font-size: 26px;
-          color: #0f172a;
-          letter-spacing: -0.03em;
-        }
-        .login-heading {
-          font-size: 28px;
-          font-weight: 700;
-          color: #0f172a;
-          margin-bottom: 6px;
-        }
-        .login-sub {
-          color: #64748b;
-          font-size: 15px;
-          margin-bottom: 28px;
-        }
-        .login-error {
-          background: #fff1f2;
-          border: 1px solid #fecdd3;
-          border-radius: 10px;
-          padding: 12px 16px;
-          color: #be123c;
-          font-size: 14px;
-          margin-bottom: 20px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .login-form {
-          display: flex;
-          flex-direction: column;
-        }
-        .login-field {
-          margin-bottom: 20px;
-        }
-        .login-label {
-          display: block;
-          font-size: 14px;
-          font-weight: 600;
-          color: #334155;
-          margin-bottom: 8px;
-        }
-        .login-input-wrap {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .login-input-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #94a3b8;
-          pointer-events: none;
-          z-index: 1;
-          display: flex;
-          align-items: center;
-        }
-        .login-input {
-          display: block;
-          width: 100%;
-          padding: 14px 14px 14px 44px;
-          border-radius: 12px;
-          border: 1.5px solid #e2e8f0;
-          font-size: 15px;
-          font-family: inherit;
-          color: #0f172a;
-          background: #f8fafc;
-          outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          box-sizing: border-box;
-          -webkit-appearance: none;
-          appearance: none;
-        }
-        .login-input::placeholder {
-          color: #94a3b8;
-          font-weight: 400;
-        }
-        .login-input:focus {
-          border-color: #4f46e5;
-          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-          background: #fff;
-        }
-        .login-btn {
-          width: 100%;
-          padding: 14px;
-          margin-top: 8px;
-          background: #4f46e5;
-          border: none;
-          border-radius: 12px;
-          color: #fff;
-          font-size: 15px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background 0.2s, box-shadow 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-        .login-btn:hover {
-          background: #4338ca;
-          box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
-        }
-        .login-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        .login-footer {
-          text-align: center;
-          color: #94a3b8;
-          font-size: 12px;
-          margin-top: 28px;
-        }
-        .login-divider {
-          position: relative;
-          margin: 22px 0 18px;
-          text-align: center;
-        }
-        .login-divider::before {
-          content: "";
-          position: absolute;
-          top: 50%;
-          left: 0;
-          right: 0;
-          height: 1px;
-          background: #e2e8f0;
-        }
-        .login-divider span {
-          position: relative;
-          display: inline-block;
-          padding: 0 12px;
-          background: #ffffff;
-          color: #94a3b8;
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-        .login-otp-link {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          width: 100%;
-          padding: 13px 14px;
-          border-radius: 12px;
-          border: 1.5px solid #cbd5e1;
-          background: #ffffff;
-          color: #334155;
-          font-size: 15px;
-          font-weight: 600;
-          text-decoration: none;
-          transition: border-color 0.2s, background 0.2s, color 0.2s;
-          box-sizing: border-box;
-        }
-        .login-otp-link:hover {
-          border-color: #4f46e5;
-          color: #4f46e5;
-          background: #f8fafc;
-        }
-        .login-right {
-          flex: 1;
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          padding: 60px;
-          position: relative;
-          overflow: hidden;
-        }
-        .login-right-content {
-          text-align: center;
-          max-width: 400px;
-          position: relative;
-          z-index: 2;
-        }
-        .login-right h2 {
-          font-size: 32px;
-          font-weight: 800;
-          margin-bottom: 16px;
-          letter-spacing: -0.03em;
-          line-height: 1.2;
-        }
-        .login-right p {
-          opacity: 0.9;
-          font-size: 17px;
-          line-height: 1.7;
-          font-weight: 400;
-        }
-        .login-tags {
-          display: flex;
-          gap: 10px;
-          margin-top: 40px;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-        .login-tag {
-          background: rgba(255,255,255,0.15);
-          padding: 10px 20px;
-          border-radius: 14px;
-          font-size: 14px;
-          font-weight: 600;
-          border: 1px solid rgba(255,255,255,0.2);
-        }
-        .login-blob-1 {
-          position: absolute;
-          width: 500px;
-          height: 500px;
-          background: white;
-          border-radius: 50%;
-          filter: blur(120px);
-          top: -150px;
-          right: -150px;
-          opacity: 0.4;
-        }
-        .login-blob-2 {
-          position: absolute;
-          width: 400px;
-          height: 400px;
-          background: #818cf8;
-          border-radius: 50%;
-          filter: blur(100px);
-          bottom: -100px;
-          left: -100px;
-          opacity: 0.4;
-        }
-        @media (max-width: 800px) {
-          .login-right { display: none; }
-          .login-left { padding: 24px; }
-        }
-      `}</style>
+    <div className="flex min-h-screen bg-[var(--color-page)] font-sans">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-10">
+        <motion.div 
+          layout 
+          className="w-full max-w-[420px] bg-[var(--color-card)] rounded-[var(--radius-lg)] p-8 lg:p-10 shadow-lg border border-[var(--color-border)]"
+        >
+          <motion.h1 layout="position" className="text-[28px] font-bold text-[var(--color-text-primary)] tracking-tight mb-2">
+            {greeting}
+          </motion.h1>
+          <motion.div layout="position" className="text-[15px] text-[var(--color-text-secondary)] mb-8">
+            <AnimatePresence mode="wait">
+              <motion.span 
+                key={loginMode} 
+                initial={{ opacity: 0, y: 5 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.15 }}
+                className="inline-block"
+              >
+                {loginMode === "password" ? "Sign in to manage your workspace" : "Enter your work email to receive an OTP"}
+              </motion.span>
+            </AnimatePresence>
+          </motion.div>
 
-      <div className="login-page">
-        <div className="login-left">
-          <div className="login-card">
-            <div className="login-brand">
-              <div className="login-brand-icon">
-                <ShieldCheck size={22} />
-              </div>
-              <span className="login-brand-name">DayFlow</span>
-            </div>
-
-            <h1 className="login-heading">Welcome back</h1>
-            <p className="login-sub">Sign in to manage your workspace</p>
-
-            {error && <div className="login-error"><span>⚠️</span> {error}</div>}
-
-            <form onSubmit={handleSubmit} className="login-form">
-              <div className="login-field">
-                <label className="login-label">Email address</label>
-                <div className="login-input-wrap">
-                  <span className="login-input-icon"><Mail size={18} /></span>
-                  <input
-                    type="email"
-                    className="login-input"
-                    value={email}
-                    placeholder="name@company.com"
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                  />
+          <AnimatePresence>
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }} 
+                animate={{ opacity: 1, height: "auto", marginBottom: 20 }} 
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-[var(--color-danger-bg)] border border-red-200 rounded-[var(--radius-sm)] p-3 text-red-700 text-sm flex items-center gap-2">
+                  <span role="img" aria-label="warning">⚠️</span> {error}
                 </div>
-              </div>
-
-              <div className="login-field">
-                <label className="login-label">Password</label>
-                <div className="login-input-wrap">
-                  <span className="login-input-icon"><Lock size={18} /></span>
-                  <input
-                    type="password"
-                    className="login-input"
-                    value={password}
-                    placeholder="••••••••"
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                  />
+              </motion.div>
+            )}
+            {message && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }} 
+                animate={{ opacity: 1, height: "auto", marginBottom: 20 }} 
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-[var(--color-success-bg)] border border-green-200 rounded-[var(--radius-sm)] p-3 text-green-700 text-sm flex items-center gap-2">
+                  <span role="img" aria-label="success">✅</span> {message}
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.form layout="position" onSubmit={handleSubmit} className="flex flex-col">
+            <motion.div layout="position" className="mb-5">
+              <label className="block text-[14px] font-semibold text-slate-700 mb-2">Email address</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3.5 text-slate-400 pointer-events-none flex items-center z-10">
+                  <EnvelopeSimple size={18} weight="bold" />
+                </span>
+                <input
+                  type="email"
+                  className="w-full py-3.5 pl-10 pr-12 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-[15px] text-[var(--color-text-primary)] bg-[var(--color-page)] focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none transition-all relative z-0"
+                  value={email}
+                  placeholder="name@company.com"
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+                <AnimatePresence>
+                  {isB2bDomain && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.5, x: 10 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.5, x: 10 }}
+                      className="absolute right-3 text-green-600 flex items-center justify-center bg-green-50 rounded-full p-1.5 shadow-sm z-10"
+                      title="Workspace recognized"
+                    >
+                      <ShieldCheck size={16} weight="fill" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+            </motion.div>
 
-              <button type="submit" className="login-btn" disabled={loading}>
-                {loading ? "Signing in..." : <>Sign in <ArrowRight size={18} /></>}
-              </button>
-            </form>
+            <AnimatePresence initial={false}>
+              {loginMode === "password" && (
+                <motion.div
+                  key="password-field"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="mb-5">
+                    <label className="block text-[14px] font-semibold text-slate-700 mb-2">Password</label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3.5 text-slate-400 pointer-events-none flex items-center">
+                        <Lock size={18} weight="bold" />
+                      </span>
+                      <input
+                        type="password"
+                        className="w-full py-3.5 pl-10 pr-4 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-[15px] text-[var(--color-text-primary)] bg-[var(--color-page)] focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none transition-all"
+                        value={password}
+                        placeholder="••••••••"
+                        onChange={e => setPassword(e.target.value)}
+                        required={loginMode === "password"}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            <div className="login-divider">
-              <span>or</span>
-            </div>
+            <motion.button 
+              layout="position" 
+              type="submit" 
+              className="w-full py-3.5 mt-2 bg-slate-900 border border-slate-900 rounded-[var(--radius-sm)] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer" 
+              disabled={loading}
+            >
+              <AnimatePresence mode="wait">
+                {loading ? (
+                  <motion.span 
+                    key="loading" 
+                    initial={{ opacity: 0, y: -5 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, y: 5 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    {loginMode === "password" ? "Signing in..." : "Sending OTP..."}
+                  </motion.span>
+                ) : (
+                  <motion.span 
+                    key="idle" 
+                    initial={{ opacity: 0, y: 5 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-2"
+                  >
+                    {loginMode === "password" ? "Sign in" : "Send OTP"} <ArrowRight size={18} weight="bold" />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </motion.form>
 
-            <Link to="/login/otp" className="login-otp-link">
-              <Mail size={18} />
-              Login via OTP
-            </Link>
+          <motion.div layout="position" className="relative my-6 text-center">
+            <div className="absolute inset-x-0 top-1/2 h-px bg-[var(--color-border)]"></div>
+            <span className="relative inline-block px-3 bg-[var(--color-card)] text-slate-400 text-[12px] font-semibold uppercase tracking-wider">or</span>
+          </motion.div>
 
-            <p className="login-footer">© 2026 DayFlow HRMS</p>
-          </div>
-        </div>
+          <motion.button 
+            layout="position"
+            type="button"
+            onClick={() => {
+              setLoginMode(prev => prev === "password" ? "otp" : "password");
+              setError(null);
+            }}
+            className="w-full py-3 flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-white text-slate-700 text-[15px] font-semibold decoration-transparent transition-all hover:border-slate-400 hover:bg-slate-50 cursor-pointer"
+          >
+            <EnvelopeSimple size={18} weight="bold" />
+            <AnimatePresence mode="wait">
+               <motion.span 
+                 key={loginMode} 
+                 initial={{ opacity: 0 }} 
+                 animate={{ opacity: 1 }} 
+                 exit={{ opacity: 0 }} 
+                 transition={{ duration: 0.15 }}
+               >
+                  {loginMode === "password" ? "Login via OTP" : "Back to password login"}
+               </motion.span>
+            </AnimatePresence>
+          </motion.button>
 
-        <div className="login-right">
-          <div className="login-blob-1" />
-          <div className="login-blob-2" />
-          <div className="login-right-content">
-            <div style={{ fontSize: "72px", marginBottom: "28px" }}>⚡</div>
-            <h2>The modern way to manage people</h2>
-            <p>Streamline your HR operations with our professional platform for attendance, tasks, and more.</p>
-            <div className="login-tags">
-              {["Real-time Tracking", "Smart Leaves", "Task Analytics"].map(f => (
-                <span key={f} className="login-tag">{f}</span>
-              ))}
-            </div>
-          </div>
-        </div>
+          <motion.p layout="position" className="text-center text-slate-400 text-xs mt-8">© 2026 DayFlow HRMS</motion.p>
+        </motion.div>
       </div>
-    </>
+
+      <ParallaxHero />
+    </div>
   );
 };
 

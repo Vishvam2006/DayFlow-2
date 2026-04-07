@@ -1,7 +1,7 @@
 import axios from "axios";
 import React, { useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle, EnvelopeSimple, ArrowsClockwise, ShieldCheck } from "@phosphor-icons/react";
 import { useAuth } from "../context/authContext";
 import API_BASE_URL from "../config/api.js";
 
@@ -73,284 +73,70 @@ const VerifyOtp = () => {
   };
 
   return (
-    <>
-      <style>{`
-        .otp-verify-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          background:
-            radial-gradient(circle at top right, rgba(79, 70, 229, 0.18), transparent 30%),
-            radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.12), transparent 26%),
-            #f8fafc;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .otp-verify-card {
-          width: 100%;
-          max-width: 480px;
-          background: #ffffff;
-          border-radius: 24px;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
-          padding: 34px;
-        }
-        .otp-verify-brand {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 28px;
-        }
-        .otp-verify-brand-icon {
-          width: 46px;
-          height: 46px;
-          border-radius: 14px;
-          background: linear-gradient(135deg, #4f46e5, #10b981);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          flex-shrink: 0;
-        }
-        .otp-verify-brand-name {
-          font-size: 26px;
-          font-weight: 800;
-          color: #0f172a;
-          letter-spacing: -0.03em;
-        }
-        .otp-verify-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          border-radius: 999px;
-          background: #ecfdf5;
-          color: #047857;
-          font-size: 12px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          margin-bottom: 16px;
-        }
-        .otp-verify-title {
-          margin: 0 0 8px;
-          font-size: 30px;
-          line-height: 1.15;
-          letter-spacing: -0.03em;
-          color: #0f172a;
-        }
-        .otp-verify-subtitle {
-          margin: 0 0 22px;
-          font-size: 15px;
-          line-height: 1.7;
-          color: #64748b;
-        }
-        .otp-verify-email {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 14px;
-          border-radius: 12px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          color: #0f172a;
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 22px;
-          word-break: break-all;
-        }
-        .otp-verify-alert {
-          border-radius: 14px;
-          padding: 14px 16px;
-          font-size: 14px;
-          margin-bottom: 18px;
-        }
-        .otp-verify-alert.error {
-          background: #fff1f2;
-          border: 1px solid #fecdd3;
-          color: #be123c;
-        }
-        .otp-verify-alert.success {
-          background: #ecfdf5;
-          border: 1px solid #bbf7d0;
-          color: #166534;
-        }
-        .otp-verify-label {
-          display: block;
-          font-size: 14px;
-          font-weight: 600;
-          color: #334155;
-          margin-bottom: 8px;
-        }
-        .otp-verify-input {
-          width: 100%;
-          border-radius: 14px;
-          border: 1.5px solid #e2e8f0;
-          background: #f8fafc;
-          padding: 16px;
-          font-size: 28px;
-          letter-spacing: 0.45em;
-          text-align: center;
-          color: #0f172a;
-          outline: none;
-          box-sizing: border-box;
-          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-        }
-        .otp-verify-input:focus {
-          border-color: #4f46e5;
-          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-          background: #ffffff;
-        }
-        .otp-verify-input::placeholder {
-          letter-spacing: 0.3em;
-        }
-        .otp-verify-button {
-          width: 100%;
-          margin-top: 20px;
-          border: none;
-          border-radius: 14px;
-          padding: 14px;
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: #ffffff;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
-        }
-        .otp-verify-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 14px 28px rgba(79, 70, 229, 0.22);
-        }
-        .otp-verify-button:disabled,
-        .otp-verify-secondary:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          transform: none;
-          box-shadow: none;
-        }
-        .otp-verify-actions {
-          margin-top: 18px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .otp-verify-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          color: #4f46e5;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 600;
-        }
-        .otp-verify-secondary {
-          border: 1px solid #cbd5e1;
-          background: #ffffff;
-          color: #334155;
-          border-radius: 12px;
-          padding: 10px 14px;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .otp-verify-footnote {
-          margin-top: 18px;
-          font-size: 12px;
-          color: #94a3b8;
-        }
-        @media (max-width: 600px) {
-          .otp-verify-card {
-            padding: 24px;
-            border-radius: 20px;
-          }
-          .otp-verify-title {
-            font-size: 26px;
-          }
-          .otp-verify-input {
-            font-size: 24px;
-            letter-spacing: 0.3em;
-          }
-        }
-      `}</style>
-
-      <div className="otp-verify-page">
-        <div className="otp-verify-card">
-          <div className="otp-verify-brand">
-            <div className="otp-verify-brand-icon">
-              <ShieldCheck size={22} />
-            </div>
-            <span className="otp-verify-brand-name">DayFlow</span>
-          </div>
-
-          <div className="otp-verify-badge">
-            <CheckCircle2 size={14} />
-            Verify OTP
-          </div>
-          <h1 className="otp-verify-title">Enter the code from your email</h1>
-          <p className="otp-verify-subtitle">
-            We sent a 6-digit OTP to your registered work email. Enter it below
-            to continue.
-          </p>
-
-          <div className="otp-verify-email">
-            <Mail size={16} />
-            {email}
-          </div>
-
-          {error ? <div className="otp-verify-alert error">{error}</div> : null}
-          {message ? (
-            <div className="otp-verify-alert success">{message}</div>
-          ) : null}
-
-          <form onSubmit={handleVerify}>
-            <label className="otp-verify-label">6-digit OTP</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              className="otp-verify-input"
-              value={otp}
-              onChange={(e) =>
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              placeholder="000000"
-              required
-            />
-
-            <button className="otp-verify-button" type="submit" disabled={loading}>
-              {loading ? "Verifying..." : "Verify and sign in"}
-            </button>
-          </form>
-
-          <div className="otp-verify-actions">
-            <Link to="/login/otp" className="otp-verify-link">
-              <ArrowLeft size={16} />
-              Change email
-            </Link>
-
-            <button
-              type="button"
-              className="otp-verify-secondary"
-              onClick={handleResend}
-              disabled={resending}
-            >
-              <RefreshCw size={16} />
-              {resending ? "Resending..." : "Resend OTP"}
-            </button>
-          </div>
-
-          <p className="otp-verify-footnote">
-            OTP expires in 5 minutes and can only be used once.
-          </p>
+    <div className="flex min-h-screen items-center justify-center p-6 bg-[var(--color-page)] font-sans">
+      <div className="w-full max-w-[480px] bg-[var(--color-card)] border border-[var(--color-border)] rounded-[var(--radius-lg)] shadow-lg p-8">
+        <div className="flex items-center justify-center mb-8">
+          <img src="/logo-full.png" alt="DayFlow HRMS" className="h-[54px] object-contain" />
         </div>
+
+        <div className="inline-flex items-center gap-2 text-[12px] font-bold tracking-wider uppercase text-slate-800 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 mb-4">
+          <CheckCircle size={14} weight="bold" />
+          Verify OTP
+        </div>
+        
+        <h1 className="text-[28px] font-bold text-[var(--color-text-primary)] leading-tight tracking-tight mb-2">Enter the code from your email</h1>
+        <p className="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-5">
+          We sent a 6-digit OTP to your registered work email. Enter it below to continue.
+        </p>
+
+        <div className="inline-flex flex-wrap items-center gap-2 px-3.5 py-2.5 rounded-[var(--radius-sm)] bg-slate-50 border border-[var(--color-border)] text-slate-900 text-[14px] font-medium tracking-tight mb-6">
+          <EnvelopeSimple size={16} weight="bold" />
+          {email}
+        </div>
+
+        {error && <div className="bg-[var(--color-danger-bg)] border border-red-200 text-red-700 text-[14px] p-3.5 rounded-[var(--radius-sm)] mb-5">{error}</div>}
+        {message && <div className="bg-[var(--color-success-bg)] border border-green-200 text-green-800 text-[14px] p-3.5 rounded-[var(--radius-sm)] mb-5">{message}</div>}
+
+        <form onSubmit={handleVerify}>
+          <label className="block text-[14px] font-semibold text-slate-700 mb-2">6-digit OTP</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            className="w-full py-4 text-center rounded-[var(--radius-sm)] border border-[var(--color-border)] text-[28px] tracking-[0.45em] text-[var(--color-text-primary)] bg-[var(--color-page)] focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none transition-all placeholder:tracking-[0.3em] font-mono mb-6"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            required
+          />
+
+          <button type="submit" className="w-full py-3.5 bg-slate-900 border border-slate-900 rounded-[var(--radius-sm)] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer" disabled={loading}>
+            {loading ? "Verifying..." : "Verify and sign in"}
+          </button>
+        </form>
+
+        <div className="mt-6 flex items-center justify-between flex-wrap gap-4">
+          <Link to="/login/otp" className="inline-flex items-center gap-2 text-slate-900 font-semibold text-[14px] hover:underline">
+            <ArrowLeft size={16} weight="bold" />
+            Change email
+          </Link>
+
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 px-3.5 py-2 border border-slate-300 rounded-[var(--radius-sm)] bg-white text-slate-700 text-[13px] font-medium transition-all hover:bg-slate-50 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+            onClick={handleResend}
+            disabled={resending}
+          >
+            <ArrowsClockwise size={16} weight="bold" />
+            {resending ? "Resending..." : "Resend OTP"}
+          </button>
+        </div>
+
+        <p className="mt-6 text-[12px] text-slate-400">
+          OTP expires in 5 minutes and can only be used once.
+        </p>
       </div>
-    </>
+    </div>
   );
 };
 

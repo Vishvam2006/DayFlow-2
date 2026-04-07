@@ -17,13 +17,14 @@ const updateProfile = async (req, res) => {
     if (bio !== undefined) updateData.bio = bio;
 
     if (req.file) {
-      // Get old user to delete previous image if it exists
+      // Get old user to delete previous image if it exists locally
       const oldUser = await User.findById(req.user._id);
-      if (oldUser?.profileImage) {
+      if (oldUser?.profileImage && !oldUser.profileImage.startsWith('http')) {
         const oldPath = path.resolve(oldUser.profileImage);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
-      updateData.profileImage = req.file.path.replace(/\\/g, "/");
+      // req.file.path is now an absolute Cloudinary URL provided by CloudinaryStorage
+      updateData.profileImage = req.file.path;
     }
 
     const user = await User.findByIdAndUpdate(req.user._id, updateData, {

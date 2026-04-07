@@ -2,13 +2,12 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import API_BASE_URL from "../../config/api.js";
 
-const S = { text: "#0f172a", sub: "#475569", muted: "#94a3b8", border: "#e2e8f0", green: "#059669", red: "#dc2626", amber: "#d97706", indigo: "#4f46e5", card: "#fff" };
 const STATUS_COLORS = {
-  Present: { bg: "#059669", label: "Present" },
-  "Half Day": { bg: "#f59e0b", label: "Half Day" },
-  Leave: { bg: "#dc2626", label: "Leave" },
-  "Leave Request": { bg: "#eab308", label: "Leave Request", text: "#713f12" },
-  Absent: { bg: "#cbd5e1", label: "Absent", text: "#475569" },
+  Present: { bg: "bg-emerald-600", border: "border-emerald-600", text: "text-white" },
+  "Half Day": { bg: "bg-amber-500", border: "border-amber-500", text: "text-white" },
+  Leave: { bg: "bg-red-600", border: "border-red-600", text: "text-white" },
+  "Leave Request": { bg: "bg-yellow-400", border: "border-yellow-400", text: "text-yellow-900" },
+  Absent: { bg: "bg-slate-300", border: "border-slate-300", text: "text-slate-600" },
 };
 
 const Attendance = () => {
@@ -85,58 +84,83 @@ const Attendance = () => {
     } catch (e) {}
   };
 
-  const card = { background: S.card, borderRadius: "12px", border: `1px solid ${S.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" };
-
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: S.text, letterSpacing: "-0.4px" }}>Attendance Calendar</h1>
-        <p style={{ color: S.sub, fontSize: "13px", marginTop: "3px" }}>Your attendance record for {year}</p>
+    <div className="max-w-[1400px] mx-auto">
+      <div className="mb-6">
+        <h1 className="text-[26px] font-bold text-[var(--color-text-primary)] tracking-tight">Attendance Calendar</h1>
+        <p className="text-[13px] text-[var(--color-text-secondary)] mt-1">Your attendance record for {year}</p>
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "14px", marginBottom: "24px" }}>
-        {[{ label: "Present", value: stats.Present, color: S.green, bg: "#f0fdf4" }, { label: "Half Day", value: stats["Half Day"], color: S.amber, bg: "#fffbeb" }, { label: "Leaves", value: stats.Leave, color: S.red, bg: "#fef2f2" }, { label: "Requests", value: stats["Leave Request"], color: "#a16207", bg: "#fefce8" }].map(({ label, value, color, bg }) => (
-          <div key={label} style={{ ...card, padding: "18px 22px", background: bg, borderColor: color + "30" }}>
-            <p style={{ fontSize: "28px", fontWeight: 700, color }}>{value}</p>
-            <p style={{ fontSize: "12px", color: S.muted, marginTop: "2px" }}>{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-emerald-50/50 border border-emerald-200 rounded-[var(--radius-sm)] p-5">
+          <p className="text-[28px] font-bold text-emerald-600 leading-tight">{stats.Present}</p>
+          <p className="text-[12px] font-medium text-emerald-800/70 mt-1">Present</p>
+        </div>
+        <div className="bg-amber-50/50 border border-amber-200 rounded-[var(--radius-sm)] p-5">
+          <p className="text-[28px] font-bold text-amber-500 leading-tight">{stats["Half Day"]}</p>
+          <p className="text-[12px] font-medium text-amber-800/70 mt-1">Half Day</p>
+        </div>
+        <div className="bg-red-50/50 border border-red-200 rounded-[var(--radius-sm)] p-5">
+          <p className="text-[28px] font-bold text-red-600 leading-tight">{stats.Leave}</p>
+          <p className="text-[12px] font-medium text-red-800/70 mt-1">Leaves</p>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200/60 rounded-[var(--radius-sm)] p-5">
+          <p className="text-[28px] font-bold text-yellow-700 leading-tight">{stats["Leave Request"]}</p>
+          <p className="text-[12px] font-medium text-yellow-800/70 mt-1">Requests</p>
+        </div>
       </div>
 
       {/* Legend */}
-      <div style={{ display: "flex", gap: "16px", marginBottom: "20px" }}>
-        {[["Present", "#059669"], ["Leave", "#dc2626"], ["Leave Request", "#eab308"], ["Half Day", "#f59e0b"], ["No Data", "#e2e8f0"]].map(([label, color]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div style={{ width: "11px", height: "11px", borderRadius: "3px", background: color }} />
-            <span style={{ fontSize: "12px", color: S.sub }}>{label}</span>
+      <div className="flex flex-wrap gap-4 mb-5">
+        {[
+          { label: "Present", color: "bg-emerald-600" },
+          { label: "Leave", color: "bg-red-600" },
+          { label: "Leave Request", color: "bg-yellow-400" },
+          { label: "Half Day", color: "bg-amber-500" },
+          { label: "No Data", color: "bg-slate-100 border border-slate-200" }
+        ].map(({ label, color }) => (
+          <div key={label} className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-sm ${color}`}></div>
+            <span className="text-[12px] text-slate-500 font-medium">{label}</span>
           </div>
         ))}
       </div>
 
       {/* Month Grids */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: "14px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {[...Array(12)].map((_, month) => {
           const monthName = new Date(year, month).toLocaleString("default", { month: "long" });
           const daysInMonth = new Date(year, month + 1, 0).getDate();
           const firstDay = new Date(year, month, 1).getDay();
+          
           return (
-            <div key={month} style={{ ...card, padding: "16px" }}>
-              <h3 style={{ fontSize: "13px", fontWeight: 600, color: S.sub, marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>{monthName}</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px" }}>
-                {["S","M","T","W","T","F","S"].map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: "9px", color: S.muted, fontWeight: 600, padding: "2px 0" }}>{d}</div>)}
-                {[...Array(firstDay)].map((_, i) => <div key={`e${i}`} />)}
+            <div key={month} className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-[var(--radius-sm)] p-4 shadow-sm">
+              <h3 className="text-[13px] font-bold text-slate-700 mb-3 uppercase tracking-wider">{monthName}</h3>
+              <div className="grid grid-cols-7 gap-1">
+                {["S","M","T","W","T","F","S"].map((d, i) => (
+                  <div key={i} className="text-center text-[10px] text-slate-400 font-bold py-1">{d}</div>
+                ))}
+                
+                {[...Array(firstDay)].map((_, i) => <div key={`e${i}`}></div>)}
+                
                 {[...Array(daysInMonth)].map((_, day) => {
                   const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day + 1).padStart(2, "0")}`;
                   const dayData = attendanceData[date];
                   const status = dayData?.status;
                   const sc = STATUS_COLORS[status];
                   const isToday = date === new Date().toISOString().split("T")[0];
+                  
                   return (
-                    <div key={day} title={dayData?.title || status || "No data"} style={{ height: "25px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px", fontSize: "10px", fontWeight: isToday ? 700 : 400, cursor: "default", background: sc ? sc.bg : "#f1f5f9", color: sc?.text || (sc ? "#fff" : S.muted), border: isToday ? `2px solid ${S.indigo}` : "none", transition: "transform 0.1s" }}
-                      onMouseEnter={e => e.currentTarget.style.transform = "scale(1.15)"}
-                      onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                    >{day + 1}</div>
+                    <div 
+                      key={day} 
+                      title={dayData?.title || status || "No data"} 
+                      className={`h-7 flex items-center justify-center rounded-[4px] text-[11px] transition-transform hover:scale-110 cursor-default ${
+                        sc ? `${sc.bg} ${sc.text}` : "bg-slate-100 text-slate-400"
+                      } ${isToday ? "ring-2 ring-slate-900 font-bold ring-offset-1" : "font-medium"}`}
+                    >
+                      {day + 1}
+                    </div>
                   );
                 })}
               </div>

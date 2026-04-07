@@ -27,7 +27,7 @@ const Profile = () => {
         if (r.data.success) {
           const u = r.data.user;
           setProfile({ name: u.name || "", jobTitle: u.jobTitle || "", bio: u.bio || "" });
-          if (u.profileImage) setPreview(`${API_BASE_URL}/${u.profileImage}`);
+          if (u.profileImage) setPreview(u.profileImage.startsWith('http') ? u.profileImage : `${API_BASE_URL}/${u.profileImage}`);
         }
       } catch (e) {
         // Fallback to auth context
@@ -61,7 +61,7 @@ const Profile = () => {
         setImage(null);
         setSavedMsg(true);
         setTimeout(() => setSavedMsg(false), 3000);
-        if (r.data.user?.profileImage) setPreview(`${API_BASE_URL}/${r.data.user.profileImage}`);
+        if (r.data.user?.profileImage) setPreview(r.data.user.profileImage.startsWith('http') ? r.data.user.profileImage : `${API_BASE_URL}/${r.data.user.profileImage}`);
         updateUser(r.data.user);
       }
     } catch (e) { console.log(e); }
