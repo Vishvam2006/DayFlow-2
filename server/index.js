@@ -23,6 +23,7 @@ const app = express();
 
 app.use(cors({
   origin: [
+    "https://day-flow-2.vercel.app/",
     "https://day-flow-beta.vercel.app",
     "http://localhost:5173",
     "http://localhost:5174",
