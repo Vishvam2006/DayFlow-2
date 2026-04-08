@@ -1,19 +1,26 @@
-import connectToDatabase from "./db/db.js";
-import app from "./app.js";
-import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import authRouter from "./routes/auth.js";
+import departmentRouter from "./routes/department.js";
+import employeeRouter from "./routes/employee.js";
+import leaveRouter from "./routes/leave.js";
+import attendanceRouter from "./routes/attendance.js";
+import profileRouter from "./routes/profile.js";
+import taskRouter from "./routes/task.js";
+import payrollRouter from "./routes/payroll.js";
 
-dotenv.config();
-
-const port = process.env.PORT || 5000;
-
-connectToDatabase();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 app.use(cors({
   origin: [
     "https://day-flow-hrms-6tjr.vercel.app",
-    "http://localhost:5173",~
+    "http://localhost:5173",
     "http://localhost:5174",
   ],
   credentials: true,
@@ -40,6 +47,4 @@ if (fs.existsSync(frontendDistPath)) {
   });
 }
 
-app.listen(port, () => {
-  console.log(`✅ Server running on port ${port}`);
-});
+export default app;
