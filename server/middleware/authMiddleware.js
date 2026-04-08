@@ -6,6 +6,13 @@ dotenv.config();
 
 const verifyUser = async (req, res, next) => {
   try {
+    if (!process.env.JWT_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: "Server misconfigured (JWT key missing)",
+      });
+    }
+
     const authHeader = req.headers.authorization || "";
 
     if (!authHeader.startsWith("Bearer ")) {
@@ -21,10 +28,7 @@ const verifyUser = async (req, res, next) => {
         .status(401)
         .json({ success: false, error: "Token not provided" });
     }
-    const decoded = await jwt.verify(token, process.env.JWT_KEY);
-    if (!decoded) {
-      return res.status(401).json({ success: false, error: "Token not valid" });
-    }
+    const decoded = jwt.verify(token, process.env.JWT_KEY);
 
     const user = await User.findById(decoded._id).select("-password");
 
@@ -35,10 +39,11 @@ const verifyUser = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.log("Verification : ", error.message);
-    return res
-    .status(401)
-    .json({ success: false, error: error.message });
+    console.log("Verification:", error?.name, error?.message);
+    return res.status(401).json({
+      success: false,
+      error: "Invalid or expired token",
+    });
   }
 };
 

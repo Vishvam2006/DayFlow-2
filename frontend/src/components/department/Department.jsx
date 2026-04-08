@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import axios from "axios";
 import { Plus, PencilSimple, Trash, Buildings, MagnifyingGlass } from "@phosphor-icons/react";
@@ -7,22 +7,34 @@ import API_BASE_URL from "../../config/api.js";
 const Department = () => {
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState("");
-  const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
+  const token = localStorage.getItem("token");
+  const headers = useMemo(
+    () => ({ Authorization: `Bearer ${token}` }),
+    [token]
+  );
 
-  useEffect(() => { fetchDepartments(); }, []);
-  const fetchDepartments = async () => { 
-    try { 
-      const r = await axios.get(`${API_BASE_URL}/api/department`, { headers }); 
-      if (r.data.success) setDepartments(r.data.departments); 
-    } catch (e) {} 
-  };
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API_BASE_URL}/api/department`, { headers });
+      if (r.data.success) setDepartments(r.data.departments);
+    } catch (error) {
+      console.error("Failed to fetch departments:", error);
+    }
+  }, [headers]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDepartments();
+  }, [fetchDepartments]);
   
   const handleDelete = async (id) => { 
     if (!window.confirm("Delete this department?")) return; 
     try { 
       await axios.delete(`${API_BASE_URL}/api/department/${id}`, { headers }); 
       setDepartments(prev => prev.filter(d => d._id !== id)); 
-    } catch (e) {} 
+    } catch (error) {
+      console.error("Failed to delete department:", error);
+    } 
   };
 
   const filtered = departments.filter(d => d.dep_name.toLowerCase().includes(search.toLowerCase()));

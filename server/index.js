@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import authRouter from "./routes/auth.js";
 import departmentRouter from "./routes/department.js";
 import employeeRouter from "./routes/employee.js";
@@ -13,6 +14,8 @@ import taskRouter from "./routes/task.js";
 import payrollRouter from "./routes/payroll.js";
 import connectToDatabase from "./db/db.js";
 
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -21,15 +24,57 @@ connectToDatabase();
 
 const app = express();
 
-app.use(cors({
-  origin: [
-    "https://day-flow-2.vercel.app",
-    "https://day-flow-beta.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:5174",
-  ],
+const normalizeOrigin = (origin) =>
+  String(origin || "")
+    .trim()
+    .replace(/\/$/, "");
+
+const defaultAllowedOrigins = [
+  "https://day-flow-2.vercel.app",
+  "https://day-flow-beta.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:5175",
+].map(normalizeOrigin);
+
+const customOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",")
+  : [];
+
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...customOrigins.map(normalizeOrigin)])].filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow non-browser requests (curl/Postman) or if the origin matches.
+    if (!origin) return callback(null, true);
+    
+    const normalized = normalizeOrigin(origin);
+    if (allowedOrigins.includes(normalized)) {
+      return callback(null, true);
+    }
+    
+    console.warn(`⚠️ CORS blocked for origin: ${origin}`);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
-}));
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type", 
+    "Authorization", 
+    "X-Requested-With", 
+    "Accept", 
+    "Origin"
+  ],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+// Handle preflight for all routes
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 // Serve uploaded profile images
