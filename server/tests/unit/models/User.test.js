@@ -1,0 +1,83 @@
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import mongoose from "mongoose";
+import { connectDB, disconnectDB, clearDB } from "../../setup.js";
+import User from "../../../models/User.js";
+
+describe("User Model Tests", () => {
+    beforeAll(async () => await connectDB());
+    afterAll(async () => await disconnectDB());
+    beforeEach(async () => await clearDB());
+
+    test("should create a valid user", async () => {
+        const validUser = new User({
+            name: "John Doe",
+            email: "john@example.com",
+            password: "password123",
+            role: "employee"
+        });
+        const savedUser = await validUser.save();
+        expect(savedUser._id).toBeDefined();
+        expect(savedUser.name).toBe("John Doe");
+    });
+
+    test("should fail if name is missing", async () => {
+        const userWithoutName = new User({
+            email: "john@example.com",
+            password: "password123",
+            role: "employee"
+        });
+        let err;
+        try {
+            await userWithoutName.save();
+        } catch (error) {
+            err = error;
+        }
+        expect(err).toBeInstanceOf(mongoose.Error.ValidationError);
+        expect(err.errors.name).toBeDefined();
+    });
+
+    test("should fail if email is invalid", async () => {
+        const userWithInvalidEmail = new User({
+            name: "John",
+            email: "not-an-email",
+            password: "password123",
+            role: "employee"
+        });
+        let err;
+        try {
+            await userWithInvalidEmail.save();
+        } catch (error) {
+            err = error;
+        }
+        
+        expect(err).toBeDefined();
+        expect(err.name).toBe("ValidationError");
+        expect(err.errors.email).toBeDefined();
+    });
+
+    test("should fail for duplicate email", async () => {
+        const user1 = new User({
+            name: "User 1",
+            email: "same@example.com",
+            password: "password",
+            role: "employee"
+        });
+        await user1.save();
+
+        const user2 = new User({
+            name: "User 2",
+            email: "same@example.com",
+            password: "password",
+            role: "employee"
+        });
+        
+        let err;
+        try {
+            await user2.save();
+        } catch (error) {
+            err = error;
+        }
+        expect(err).toBeDefined();
+        expect(err.code).toBe(11000);
+    });
+});
