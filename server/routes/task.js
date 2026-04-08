@@ -1,5 +1,6 @@
 import express from "express";
 import verifyUser from "../middleware/authMiddleware.js";
+import adminMiddleware from "../middleware/adminMiddleware.js";
 import {
   createTask,
   getAllTasks,
@@ -11,9 +12,9 @@ import {
 const router = express.Router();
 
 // Admin routes
-router.post("/", verifyUser, createTask);
-router.get("/all", verifyUser, getAllTasks);
-router.delete("/:id", verifyUser, deleteTask);
+router.post("/", verifyUser, adminMiddleware, createTask);
+router.get("/all", verifyUser, adminMiddleware, getAllTasks);
+router.delete("/:id", verifyUser, adminMiddleware, deleteTask);
 
 // Employee routes
 router.get("/my-tasks", verifyUser, getMyTasks);

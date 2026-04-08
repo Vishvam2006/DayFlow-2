@@ -2,13 +2,17 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 import otpGenerator from "otp-generator";
 import { sendOTP } from "../utils/mailer.js";
 
 dotenv.config();
 
-const otpStore = new Map();
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_COOLDOWN_MS = 60 * 1000; // throttle OTP sends per email
+const OTP_MAX_ATTEMPTS = 5;
+const otpStore = new Map(); // key=email, value={ otpHash, expires, attempts, lastSentAt }
 
 const buildAuthUser = (user) => ({
   _id: user._id,
@@ -22,6 +26,14 @@ const buildAuthUser = (user) => ({
   profileImage: user.profileImage || "",
 });
 
+const hashOtp = (email, otp) => {
+  // bind OTP to email so same OTP across users can't be replayed
+  return crypto
+    .createHash("sha256")
+    .update(`${email}:${String(otp)}`)
+    .digest("hex");
+};
+
 const sendOtpLogin = async (req, res) => {
   try {
     const email = req.body.email?.toLowerCase().trim();
@@ -32,8 +44,17 @@ const sendOtpLogin = async (req, res) => {
 
     const user = await User.findOne({ email });
 
+    // Avoid account enumeration: always return generic success.
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.json({ message: "If the account exists, an OTP was sent." });
+    }
+
+    const existingRecord = otpStore.get(email);
+    if (
+      existingRecord?.lastSentAt &&
+      Date.now() - existingRecord.lastSentAt < OTP_COOLDOWN_MS
+    ) {
+      return res.json({ message: "If the account exists, an OTP was sent." });
     }
 
     const otp = otpGenerator.generate(6, {
@@ -44,13 +65,15 @@ const sendOtpLogin = async (req, res) => {
     });
 
     otpStore.set(email, {
-      otp,
-      expires: Date.now() + 5 * 60 * 1000,
+      otpHash: hashOtp(email, otp),
+      expires: Date.now() + OTP_TTL_MS,
+      attempts: 0,
+      lastSentAt: Date.now(),
     });
 
     await sendOTP(email, otp);
 
-    return res.json({ message: "OTP sent successfully" });
+    return res.json({ message: "If the account exists, an OTP was sent." });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -61,10 +84,19 @@ const verifyOtpLogin = async (req, res) => {
     const email = req.body.email?.toLowerCase().trim();
     const { otp } = req.body;
 
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+
     const record = otpStore.get(email);
 
     if (!record) {
       return res.status(400).json({ message: "No OTP found" });
+    }
+
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      otpStore.delete(email);
+      return res.status(429).json({ message: "Too many attempts. Try again." });
     }
 
     if (Date.now() > record.expires) {
@@ -72,7 +104,10 @@ const verifyOtpLogin = async (req, res) => {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    if (record.otp != otp) {
+    record.attempts += 1;
+    otpStore.set(email, record);
+
+    if (record.otpHash !== hashOtp(email, otp)) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
