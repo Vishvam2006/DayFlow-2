@@ -45,59 +45,56 @@ export async function generateInsightsBatch(employees) {
   if (!Array.isArray(employees) || employees.length === 0) return [];
 
   const prompt = `
-You are an expert HR strategist and organizational psychologist.
+You are a strict JSON generator and senior HR strategist.
 
-Your task is to analyze employee data and produce precise, actionable insights.
+CRITICAL OUTPUT RULES (MUST FOLLOW):
+- Output ONLY valid JSON
+- Output MUST be directly parseable by JSON.parse()
+- Use DOUBLE QUOTES for ALL keys and strings
+- Do NOT use single quotes
+- Do NOT add trailing commas
+- Do NOT add comments
+- Do NOT add explanation or text outside JSON
 
-STRICT OUTPUT RULES:
-- Return ONLY a valid JSON array
-- No explanations, no markdown, no extra text
-- Do not include any text outside JSON
-- Ensure all employees have DIFFERENT outputs
-
-OUTPUT STRUCTURE:
-[
-  {
-    "name": "Employee Name",
-    "insight": {
-      "summary": "Concise diagnosis of employee situation",
-      "issues": ["issue 1", "issue 2"],
-      "impact": "clear business or team impact",
-      "recommendations": [
-        "specific action with responsible person",
-        "specific measurable intervention",
-        "targeted corrective step",
-        "optional additional concrete action"
-      ]
-    }
+STRUCTURE:
+Return a JSON array where each object has:
+{
+  "name": string,
+  "insight": {
+    "summary": string,
+    "issues": string[],
+    "impact": string,
+    "recommendations": string[]
   }
-]
+}
 
-ANALYSIS INSTRUCTIONS:
-- Use ONLY the provided data
-- Identify root causes based on patterns in:
-  productivity, leave, attendance, and risk
-- Do not repeat the same reasoning across employees
-- Each employee must be analyzed independently
+CONTENT RULES:
+- Use ONLY provided data (productivity, leave, attendance, risk)
+- Each employee MUST have unique reasoning
+- Avoid repetition across employees
 
-RECOMMENDATION CONSTRAINTS:
-- Each recommendation must be actionable and specific
-- Include who should act (manager or HR)
-- Include what action should be taken
-- Include time-bound or measurable elements where possible
-- Avoid vague or generic language
-- Avoid repeating similar recommendations across employees
+RECOMMENDATIONS RULES:
+- 3 to 5 recommendations per employee
+- Each must be actionable and specific
+- Must clearly mention WHO performs action (Manager or HR)
+- Prefer measurable or time-bound actions
 
-DIVERSITY RULE:
-- If two employees have similar metrics, still generate different insights and actions by varying interpretation and intervention strategy
+STRICTLY AVOID:
+- generic phrases
+- repeated wording
+- template copying
 
-EMPLOYEE DATA:
-${employees
-  .map(
-    (e) =>
-      `Name: ${e.name}, Department: ${e.department}, Role: ${e.jobTitle}, Productivity: ${(e.productivity * 100).toFixed(0)}%, Leave: ${(e.leave_ratio * 100).toFixed(0)}%, Attendance: ${(e.attendance_score * 100).toFixed(0)}%, Risk: ${e.risk_score}`,
-  )
-  .join("\n")}
+EMPLOYEES:
+${employees.map((e, i) =>
+  `Employee ${i + 1}:
+  Name: ${e.name}
+  Department: ${e.department}
+  Role: ${e.jobTitle}
+  Productivity: ${(e.productivity * 100).toFixed(0)}%
+  Leave: ${(e.leave_ratio * 100).toFixed(0)}%
+  Attendance: ${(e.attendance_score * 100).toFixed(0)}%
+  Risk Score: ${e.risk_score}`
+).join("\n\n")}
 `;
 
   try {
