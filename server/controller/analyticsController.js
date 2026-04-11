@@ -14,11 +14,11 @@ export const getAnalytics = async (req, res) => {
 
     const enrichedUsers = await Promise.all(
       users.map(async (u) => {
-        const attendanceRecords = await Attendance.find({ user: u._id });
+        const attendanceRecords = await Attendance.find({ employee: u._id });
         const presentDays = attendanceRecords.filter(a => a.status === "present").length;
         const attendanceScore = attendanceRecords.length ? presentDays / attendanceRecords.length : 0;
 
-        const leaves = await Leave.find({ user: u._id });
+        const leaves = await Leave.find({ employee: u._id });
         const leaveRatio = attendanceRecords.length ? leaves.length / attendanceRecords.length : 0;
 
         const tasks = await Task.find({ assignedTo: u._id });

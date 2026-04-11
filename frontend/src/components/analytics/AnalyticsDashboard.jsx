@@ -5,484 +5,269 @@ import {
 } from "recharts";
 import {
   Users, Warning, CheckCircle, TrendUp, ArrowUp, ArrowDown,
-  FunnelSimple, SortAscending, Brain, Sparkle,
+  FunnelSimple, SortAscending, Brain, Sparkle, X, Info,
+  Lightbulb, ShieldWarning, ChartLineUp
 } from "@phosphor-icons/react";
 import API_BASE_URL from "../../config/api.js";
 
 /* ─────────────────────────── constants ─────────────────────────── */
-
 const RISK_COLORS = { High: "#dc2626", Medium: "#d97706", Low: "#059669" };
-const RISK_BG     = { High: "#fef2f2", Medium: "#fffbeb", Low: "#f0fdf4" };
-const PIE_COLORS  = ["#dc2626", "#d97706", "#059669"];
+const RISK_BG = { High: "#fef2f2", Medium: "#fffbeb", Low: "#f0fdf4" };
 
-const DEPARTMENTS = ["All Departments"];
+/* ─────────────────────────── components ─────────────────────────── */
 
-/* ─────────────────────────── small helpers ─────────────────────── */
+// 1. Employee Detail Modal (The "Drawer")
+function EmployeeDetailModal({ employee, onClose }) {
+  if (!employee) return null;
+
+  const insight = employee.insight || {};
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm transition-opacity">
+      <div className="w-full max-w-xl bg-white h-full shadow-2xl animate-slide-in overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">{employee.name}</h2>
+            <p className="text-slate-500 text-sm">Case Analysis • {employee.risk_level} Risk</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <X size={24} weight="bold" />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-8">
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Risk Score</p>
+              <p className="text-2xl font-black" style={{ color: RISK_COLORS[employee.risk_level] }}>{employee.risk_score}</p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Productivity</p>
+              <p className="text-2xl font-black text-slate-700">{(employee.productivity * 100).toFixed(0)}%</p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Attendance</p>
+              <p className="text-2xl font-black text-slate-700">{(employee.attendance_score * 100).toFixed(0)}%</p>
+            </div>
+          </div>
+
+          {/* AI Executive Summary */}
+          <section className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 relative overflow-hidden">
+            <Sparkle size={40} weight="fill" className="absolute -right-4 -top-4 text-indigo-100/50 rotate-12" />
+            <h3 className="flex items-center gap-2 text-indigo-900 font-bold mb-3">
+              <Brain size={20} weight="fill" />
+              AI Executive Insight
+            </h3>
+            <p className="text-indigo-800/80 leading-relaxed italic">
+              "{insight.summary || "No automated summary available for this profile."}"
+            </p>
+          </section>
+
+          {/* Issues and Risk Factors */}
+          <section>
+            <h3 className="flex items-center gap-2 text-slate-800 font-bold mb-4">
+              <ShieldWarning size={20} weight="bold" className="text-red-500" />
+              Identified Risk Factors
+            </h3>
+            <div className="space-y-3">
+              {Array.isArray(insight.issues) ? insight.issues.map((issue, i) => (
+                <div key={i} className="flex gap-3 p-3 bg-red-50/30 border border-red-100 rounded-lg text-sm text-red-800">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                  {issue}
+                </div>
+              )) : <p className="text-slate-500 text-sm">No critical issues detected.</p>}
+            </div>
+          </section>
+
+          {/* Business Impact */}
+          <section>
+            <h3 className="flex items-center gap-2 text-slate-800 font-bold mb-2 text-sm uppercase tracking-wider">
+              <ChartLineUp size={18} /> Business Impact
+            </h3>
+            <p className="text-slate-600 text-sm leading-relaxed bg-slate-50 p-4 rounded-lg">
+              {insight.impact || "Standard operational impact based on current metrics."}
+            </p>
+          </section>
+
+          {/* Solutions / Recommendations */}
+          <section>
+            <h3 className="flex items-center gap-2 text-slate-800 font-bold mb-4">
+              <Lightbulb size={20} weight="fill" className="text-amber-500" />
+              Recommended Solutions
+            </h3>
+            <div className="grid grid-cols-1 gap-3">
+              {Array.isArray(insight.recommendations) ? insight.recommendations.map((rec, i) => (
+                <div key={i} className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  <CheckCircle size={20} weight="fill" className="text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-900">{rec}</span>
+                </div>
+              )) : <p className="text-slate-500 text-sm">No specific recommendations provided.</p>}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function RiskBadge({ level }) {
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider"
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight"
       style={{ color: RISK_COLORS[level], backgroundColor: RISK_BG[level] }}
     >
-      {level === "High" && <Warning size={10} weight="fill" />}
-      {level === "Medium" && <TrendUp size={10} weight="fill" />}
-      {level === "Low" && <CheckCircle size={10} weight="fill" />}
       {level}
     </span>
   );
 }
 
-function StatCard({ title, value, icon: Icon, color, sub, trend }) {
+function StatCard({ title, value, icon: Icon, color, sub }) {
   return (
-    <div className="bg-[var(--color-card)] rounded-[var(--radius-md)] p-5 border border-[var(--color-border)] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all cursor-default">
+    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm transition-all hover:shadow-md">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">{title}</p>
-          <p className="text-3xl font-bold text-[var(--color-text-primary)] leading-none">{value}</p>
-          {sub && <p className="text-xs text-[var(--color-text-muted)] mt-1.5">{sub}</p>}
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{title}</p>
+          <p className="text-3xl font-black text-slate-800">{value}</p>
+          {sub && <p className="text-[11px] text-slate-500 mt-2 font-medium">{sub}</p>}
         </div>
-        <div className="w-[42px] h-[42px] rounded-[var(--radius-sm)] flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}>
-          <Icon size={20} color={color} weight="fill" />
+        <div className="p-3 rounded-xl" style={{ backgroundColor: `${color}15` }}>
+          <Icon size={24} color={color} weight="fill" />
         </div>
       </div>
     </div>
   );
 }
 
-function BarTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-lg px-3 py-2 text-[12px]">
-      <p className="font-semibold text-[var(--color-text-primary)] mb-1">{label}</p>
-      <p style={{ color: RISK_COLORS[payload[0]?.payload?.risk_level] }}>
-        Risk Score: <strong>{payload[0]?.value}</strong>
-      </p>
-      <p className="text-[var(--color-text-secondary)]">Level: {payload[0]?.payload?.risk_level}</p>
-    </div>
-  );
-}
-
-function PieTooltipCustom({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-lg px-3 py-2 text-[12px]">
-      <p style={{ color: RISK_COLORS[payload[0]?.name] }} className="font-semibold">{payload[0]?.name} Risk</p>
-      <p className="text-[var(--color-text-secondary)]">{payload[0]?.value} employees</p>
-    </div>
-  );
-}
-
-/* ─────────────────────────── main component ─────────────────────── */
+/* ─────────────────────────── main dashboard ─────────────────────── */
 
 const AnalyticsDashboard = () => {
-  const [data, setData]         = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
-  const [sortKey, setSortKey]   = useState("risk_score");
-  const [sortDir, setSortDir]   = useState("desc");
-  const [search, setSearch]     = useState("");
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  /* ── fetch ── */
- /* ── fetch inside AnalyticsDashboard ── */
-useEffect(() => {
-  const token = localStorage.getItem("token");
-  setLoading(true);
-  
-  fetch(`${API_BASE_URL}/api/analytics`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-    .then(async res => {
-      const json = await res.json();
-      
-      // If the response is not OK (e.g., 500 error), throw the error message
-      if (!res.ok) {
-        throw new Error(json.message || `Server Error (${res.status})`);
-      }
-      
-      if (!Array.isArray(json)) {
-        throw new Error("Unexpected API response format");
-      }
-      
-      return json;
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    fetch(`${API_BASE_URL}/api/analytics`, {
+      headers: { Authorization: `Bearer ${token}` },
     })
-    .then(json => { 
-      setData(json); 
-      setLoading(false); 
-    })
-    .catch(err => { 
-      setError(err.message); 
-      setLoading(false); 
-    });
-}, []);
+      .then(res => res.json())
+      .then(json => {
+        setData(Array.isArray(json) ? json : []);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
 
-  /* ── derived data ── */
   const summary = useMemo(() => ({
-    total:  data.length,
-    high:   data.filter(e => e.risk_level === "High").length,
+    total: data.length,
+    high: data.filter(e => e.risk_level === "High").length,
     medium: data.filter(e => e.risk_level === "Medium").length,
-    low:    data.filter(e => e.risk_level === "Low").length,
+    low: data.filter(e => e.risk_level === "Low").length,
   }), [data]);
 
-  const pieData = useMemo(() => [
-    { name: "High",   value: summary.high },
-    { name: "Medium", value: summary.medium },
-    { name: "Low",    value: summary.low },
-  ].filter(d => d.value > 0), [summary]);
+  const filtered = data.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
 
-  const topRisk = useMemo(() =>
-    [...data].sort((a, b) => b.risk_score - a.risk_score).slice(0, 3),
-  [data]);
+  if (loading) return <div className="p-10 text-center animate-pulse font-medium text-slate-400">Analyzing Workforce Data...</div>;
 
-  /* attendance trend mock — show each employee's attendance as a data point */
-  const attendanceTrend = useMemo(() =>
-    data.slice(0, 8).map(e => ({
-      name: e.name.split(" ")[0],
-      attendance: Math.round(e.attendance_score * 100),
-      productivity: Math.round(e.productivity * 100),
-    })),
-  [data]);
-
-  /* filtered + sorted table */
-  const filtered = useMemo(() => {
-    let rows = [...data];
-    if (search.trim()) {
-      rows = rows.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
-    }
-    rows.sort((a, b) => {
-      const aVal = a[sortKey] ?? 0;
-      const bVal = b[sortKey] ?? 0;
-      if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      return sortDir === "asc" ? aVal - bVal : bVal - aVal;
-    });
-    return rows;
-  }, [data, sortKey, sortDir, search]);
-
-  function toggleSort(key) {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("desc"); }
-  }
-
-  function SortIcon({ col }) {
-    if (sortKey !== col) return <SortAscending size={12} className="text-[var(--color-text-muted)]" />;
-    return sortDir === "asc"
-      ? <ArrowUp size={12} className="text-[var(--color-text-primary)]" />
-      : <ArrowDown size={12} className="text-[var(--color-text-primary)]" />;
-  }
-
-  /* ── loading / error states ── */
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin" />
-      <p className="text-[var(--color-text-secondary)] text-sm">Loading analytics…</p>
-    </div>
-  );
-
-  if (error) return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-      <Warning size={40} className="text-[var(--color-danger)]" weight="fill" />
-      <p className="text-[var(--color-text-primary)] font-semibold">Failed to load analytics</p>
-      <p className="text-sm text-[var(--color-text-secondary)] max-w-md text-center">{error}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="mt-2 px-4 py-2 text-sm font-medium bg-slate-800 text-white rounded-[var(--radius-sm)] hover:bg-slate-700 transition-colors"
-      >
-        Retry
-      </button>
-    </div>
-  );
-
-  if (data.length === 0) return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-      <Users size={40} className="text-[var(--color-text-muted)]" weight="fill" />
-      <p className="text-[var(--color-text-primary)] font-semibold">No employee data found</p>
-      <p className="text-sm text-[var(--color-text-secondary)]">Add employees and their task/leave data to see analytics.</p>
-    </div>
-  );
-
-  /* ─────────────────────────── render ─────────────────────────── */
   return (
-    <div className="max-w-[1400px] mx-auto pb-10">
-
-      {/* ── Header ── */}
-      <div className="mb-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-[26px] font-bold text-[var(--color-text-primary)] tracking-tight flex items-center gap-2">
-            <Brain size={26} weight="fill" className="text-indigo-600" />
-            Predictive Analytics
-          </h1>
-          <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">
-            AI-powered burnout &amp; attrition risk assessment
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1.5">
-          <Sparkle size={13} weight="fill" />
-          Insights by Gemini AI
-        </div>
-      </div>
-
-      {/* ── Summary Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Total Employees" value={summary.total} icon={Users}        color="#0f172a" sub="Active workforce" />
-        <StatCard title="High Risk"        value={summary.high} icon={Warning}       color="#dc2626" sub="Immediate attention" />
-        <StatCard title="Medium Risk"      value={summary.medium} icon={TrendUp}     color="#d97706" sub="Monitor closely" />
-        <StatCard title="Low Risk"         value={summary.low} icon={CheckCircle}    color="#059669" sub="Healthy & stable" />
-      </div>
-
-      {/* ── Top Risk Employees ── */}
-      {topRisk.length > 0 && (
-        <div className="bg-[var(--color-card)] rounded-[var(--radius-md)] border border-[var(--color-border)] shadow-sm p-5 mb-6">
-          <p className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-3 flex items-center gap-1.5">
-            <Warning size={15} weight="fill" className="text-[var(--color-danger)]" />
-            Top Risk Employees
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            {topRisk.map((emp, i) => (
-              <div key={emp.name}
-                className="flex-1 rounded-[var(--radius-sm)] border p-3"
-                style={{ borderColor: `${RISK_COLORS[emp.risk_level]}30`, backgroundColor: RISK_BG[emp.risk_level] }}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <p className="text-[13px] font-semibold text-[var(--color-text-primary)] truncate">{emp.name}</p>
-                  <RiskBadge level={emp.risk_level} />
-                </div>
-                <p className="text-[22px] font-bold" style={{ color: RISK_COLORS[emp.risk_level] }}>{emp.risk_score}<span className="text-[11px] font-medium ml-0.5">/100</span></p>
-                <p className="text-[11px] text-[var(--color-text-secondary)] mt-1 leading-snug line-clamp-2">{emp.insight?.summary}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="max-w-[1400px] mx-auto p-6 bg-slate-50 min-h-screen">
+      
+      {/* Drawer Overlay */}
+      {selectedEmployee && (
+        <EmployeeDetailModal 
+          employee={selectedEmployee} 
+          onClose={() => setSelectedEmployee(null)} 
+        />
       )}
 
-      {/* ── Charts Row ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-
-        {/* Bar Chart */}
-        <div className="lg:col-span-2 bg-[var(--color-card)] rounded-[var(--radius-md)] border border-[var(--color-border)] shadow-sm p-5">
-          <p className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-4">Employee Risk Scores</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-                tickFormatter={n => n.split(" ")[0]} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} />
-              <Tooltip content={<BarTooltip />} />
-              <Bar dataKey="risk_score" radius={[3, 3, 0, 0]}>
-                {data.map((entry, i) => (
-                  <Cell key={i} fill={RISK_COLORS[entry.risk_level]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      {/* Header */}
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+            <Brain size={36} weight="fill" className="text-indigo-600" />
+            Talent Intelligence
+          </h1>
+          <p className="text-slate-500 font-medium">Predictive Burnout & Engagement Analytics</p>
         </div>
-
-        {/* Pie Chart */}
-        <div className="bg-[var(--color-card)] rounded-[var(--radius-md)] border border-[var(--color-border)] shadow-sm p-5">
-          <p className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-4">Risk Distribution</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="45%"
-                innerRadius={55}
-                outerRadius={85}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {pieData.map((entry, i) => (
-                  <Cell key={entry.name} fill={RISK_COLORS[entry.name]} />
-                ))}
-              </Pie>
-              <Tooltip content={<PieTooltipCustom />} />
-              <Legend
-                formatter={(value) => (
-                  <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{value}</span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="flex gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-xs font-bold items-center">
+          <Sparkle weight="fill" />
+          POWERED BY GEMINI AI
         </div>
       </div>
 
-      {/* ── Attendance & Productivity Trend ── */}
-      <div className="bg-[var(--color-card)] rounded-[var(--radius-md)] border border-[var(--color-border)] shadow-sm p-5 mb-6">
-        <p className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-4">
-          Attendance vs Productivity (%) — Per Employee
-        </p>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={attendanceTrend} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} />
-            <Tooltip
-              contentStyle={{
-                fontSize: 12,
-                borderRadius: "4px",
-                border: "1px solid var(--color-border)",
-                boxShadow: "var(--shadow-md)",
-              }}
-            />
-            <Legend formatter={(v) => <span style={{ fontSize: 11 }}>{v}</span>} />
-            <Line type="monotone" dataKey="attendance"   stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} name="Attendance %" />
-            <Line type="monotone" dataKey="productivity" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} name="Productivity %" />
-          </LineChart>
-        </ResponsiveContainer>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard title="Total Staff" value={summary.total} icon={Users} color="#6366f1" sub="Monitored profiles" />
+        <StatCard title="Critical Risk" value={summary.high} icon={Warning} color="#ef4444" sub="Immediate attention needed" />
+        <StatCard title="Elevated Risk" value={summary.medium} icon={TrendUp} color="#f59e0b" sub="Trending upward" />
+        <StatCard title="Stable" value={summary.low} icon={CheckCircle} color="#10b981" sub="High engagement" />
       </div>
 
-      {/* ── Employee Table ── */}
-      <div className="bg-[var(--color-card)] rounded-[var(--radius-md)] border border-[var(--color-border)] shadow-sm overflow-hidden">
-        {/* Table header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border)]">
-          <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">
-            Employee Risk Details
-            <span className="ml-2 text-[11px] font-normal text-[var(--color-text-muted)]">({filtered.length} records)</span>
-          </p>
-          <div className="flex items-center gap-2">
-            <FunnelSimple size={14} className="text-[var(--color-text-muted)] shrink-0" />
-            <input
+      {/* Main Table Section */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800">Workforce Risk Assessment</h3>
+          <div className="relative">
+            <FunnelSimple className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            <input 
+              className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 ring-indigo-500 transition-all w-64"
+              placeholder="Filter by name..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search employee…"
-              className="text-[12px] px-3 py-1.5 border border-[var(--color-border)] rounded-[var(--radius-sm)] outline-none focus:border-slate-400 w-48"
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px]">
-            <thead className="bg-[var(--color-page)] border-b border-[var(--color-border)]">
-              <tr>
-                {[
-                  { label: "#",              key: null },
-                  { label: "Name",           key: "name" },
-                  { label: "Productivity",   key: "productivity" },
-                  { label: "Leave Ratio",    key: "leave_ratio" },
-                  { label: "Attendance",     key: "attendance_score" },
-                  { label: "Risk Score",     key: "risk_score" },
-                  { label: "Risk Level",     key: "risk_level" },
-                  { label: "AI Insight",     key: null },
-                ].map(({ label, key }) => (
-                  <th
-                    key={label}
-                    onClick={key ? () => toggleSort(key) : undefined}
-                    className={`px-4 py-3 text-left text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider whitespace-nowrap select-none
-                      ${key ? "cursor-pointer hover:text-[var(--color-text-primary)]" : ""}`}
-                  >
-                    <span className="flex items-center gap-1">
-                      {label}
-                      {key && <SortIcon col={key} />}
-                    </span>
-                  </th>
-                ))}
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 text-[10px] uppercase tracking-widest font-bold text-slate-400">
+                <th className="px-6 py-4">Employee</th>
+                <th className="px-6 py-4">Performance</th>
+                <th className="px-6 py-4">Attendance</th>
+                <th className="px-6 py-4">Risk Level</th>
+                <th className="px-6 py-4">Quick Insight</th>
+                <th className="px-6 py-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--color-border)]">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-[var(--color-text-muted)] text-[13px]">
-                    No employees match your search.
+            <tbody className="divide-y divide-slate-50">
+              {filtered.map(emp => (
+                <tr key={emp.name} className="group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedEmployee(emp)}>
+                  <td className="px-6 py-5">
+                    <p className="font-bold text-slate-700">{emp.name}</p>
+                    <p className="text-xs text-slate-400">ID: {emp.employeeId || 'N/A'}</p>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500" style={{ width: `${emp.productivity * 100}%` }} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-600">{(emp.productivity * 100).toFixed(0)}%</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5 font-bold text-slate-600 text-sm">
+                    {(emp.attendance_score * 100).toFixed(0)}%
+                  </td>
+                  <td className="px-6 py-5">
+                    <RiskBadge level={emp.risk_level} />
+                  </td>
+                  <td className="px-6 py-5">
+                    <p className="text-xs text-slate-500 max-w-[200px] truncate">{emp.insight?.summary}</p>
+                  </td>
+                  <td className="px-6 py-5 text-right">
+                    <button className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                      VIEW REPORT
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                filtered.map((emp, i) => (
-                  <tr key={emp.name} className="hover:bg-[var(--color-page)] transition-colors">
-                    <td className="px-4 py-3 text-[var(--color-text-muted)]">{i + 1}</td>
-                    <td className="px-4 py-3 font-semibold text-[var(--color-text-primary)] whitespace-nowrap">{emp.name}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(emp.productivity * 100, 100)}%`,
-                              backgroundColor: emp.productivity >= 0.6 ? "#059669" : emp.productivity >= 0.4 ? "#d97706" : "#dc2626",
-                            }}
-                          />
-                        </div>
-                        <span>{(emp.productivity * 100).toFixed(0)}%</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{(emp.leave_ratio * 100).toFixed(0)}%</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(emp.attendance_score * 100, 100)}%`,
-                              backgroundColor: emp.attendance_score >= 0.85 ? "#059669" : emp.attendance_score >= 0.7 ? "#d97706" : "#dc2626",
-                            }}
-                          />
-                        </div>
-                        <span>{(emp.attendance_score * 100).toFixed(0)}%</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="font-bold text-[15px]"
-                        style={{ color: RISK_COLORS[emp.risk_level] }}
-                      >
-                        {emp.risk_score}
-                      </span>
-                      <span className="text-[var(--color-text-muted)] text-[10px] ml-0.5">/100</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <RiskBadge level={emp.risk_level} />
-                    </td>
-                    <td className="px-4 py-3 max-w-[320px]">
-  <div className="flex items-start gap-2">
-    <Sparkle size={11} weight="fill" className="text-indigo-400 mt-1 shrink-0" />
-
-    <div className="text-[12px] text-[var(--color-text-secondary)] space-y-1">
-
-      {/* Summary */}
-      <p className="font-semibold text-[var(--color-text-primary)]">
-        {emp.insight?.summary}
-      </p>
-
-      {/* Issues */}
-      <ul className="list-disc ml-4 text-[11px]">
-  {Array.isArray(emp.insight?.issues)
-    ? emp.insight.issues.map((issue, i) => (
-        <li key={i}>{issue}</li>
-      ))
-    : emp.insight?.issues && (
-        <li>{emp.insight.issues}</li>
-      )
-  }
-</ul>
-
-      {/* Impact */}
-      <p className="text-[11px] italic">
-        {emp.insight?.impact}
-      </p>
-
-      {/* Recommendations */}
-      <div className="flex flex-wrap gap-1 mt-1">
-  {Array.isArray(emp.insight?.recommendations)
-    ? emp.insight.recommendations.map((rec, i) => (
-        <span key={i} className="text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
-          {rec}
-        </span>
-      ))
-    : emp.insight?.recommendations && (
-        <span className="text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
-          {emp.insight.recommendations}
-        </span>
-      )
-  }
-</div>
-
-    </div>
-  </div>
-</td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
