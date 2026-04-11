@@ -1,11 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { createElement, useEffect, useState, useMemo } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line,
-} from "recharts";
-import {
-  Users, Warning, CheckCircle, TrendUp, ArrowUp, ArrowDown,
-  FunnelSimple, SortAscending, Brain, Sparkle, X, Info,
+  Users, Warning, CheckCircle, TrendUp,
+  FunnelSimple, Brain, Sparkle, X,
   Lightbulb, ShieldWarning, ChartLineUp
 } from "@phosphor-icons/react";
 import API_BASE_URL from "../../config/api.js";
@@ -14,13 +10,61 @@ import API_BASE_URL from "../../config/api.js";
 const RISK_COLORS = { High: "#dc2626", Medium: "#d97706", Low: "#059669" };
 const RISK_BG = { High: "#fef2f2", Medium: "#fffbeb", Low: "#f0fdf4" };
 
+const INSIGHT_FALLBACK = {
+  summary: "Analysis pending",
+  issues: [],
+  impact: "N/A",
+  recommendations: [],
+};
+
+const toRatio = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.min(Math.max(number, 0), 1);
+};
+
+const formatPercent = (value) => `${Math.round(toRatio(value) * 100)}%`;
+
+const getRiskLevel = (level) => (
+  Object.hasOwn(RISK_COLORS, level) ? level : "Low"
+);
+
+const normalizeInsight = (insight) => ({
+  ...INSIGHT_FALLBACK,
+  ...(insight && typeof insight === "object" ? insight : {}),
+  issues: Array.isArray(insight?.issues) ? insight.issues.filter(Boolean) : [],
+  recommendations: Array.isArray(insight?.recommendations)
+    ? insight.recommendations.filter(Boolean)
+    : [],
+});
+
+const normalizeEmployee = (employee = {}) => {
+  const riskScore = Number(employee.risk_score);
+
+  return {
+    ...employee,
+    _id: employee._id || employee.employeeId || employee.name,
+    name: employee.name || "Unknown employee",
+    employeeId: employee.employeeId || "N/A",
+    productivity: toRatio(employee.productivity),
+    leave_ratio: toRatio(employee.leave_ratio),
+    attendance_score: toRatio(employee.attendance_score),
+    risk_score: Number.isFinite(riskScore)
+      ? Math.min(Math.max(Math.round(riskScore), 0), 100)
+      : 0,
+    risk_level: getRiskLevel(employee.risk_level),
+    insight: normalizeInsight(employee.insight),
+  };
+};
+
 /* ─────────────────────────── components ─────────────────────────── */
 
 // 1. Employee Detail Modal (The "Drawer")
 function EmployeeDetailModal({ employee, onClose }) {
   if (!employee) return null;
 
-  const insight = employee.insight || {};
+  const riskLevel = getRiskLevel(employee.risk_level);
+  const insight = normalizeInsight(employee.insight);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm transition-opacity">
@@ -29,7 +73,7 @@ function EmployeeDetailModal({ employee, onClose }) {
         <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">{employee.name}</h2>
-            <p className="text-slate-500 text-sm">Case Analysis • {employee.risk_level} Risk</p>
+            <p className="text-slate-500 text-sm">Case Analysis • {riskLevel} Risk</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
             <X size={24} weight="bold" />
@@ -41,15 +85,15 @@ function EmployeeDetailModal({ employee, onClose }) {
           <div className="grid grid-cols-3 gap-4">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Risk Score</p>
-              <p className="text-2xl font-black" style={{ color: RISK_COLORS[employee.risk_level] }}>{employee.risk_score}</p>
+              <p className="text-2xl font-black" style={{ color: RISK_COLORS[riskLevel] }}>{employee.risk_score}</p>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Productivity</p>
-              <p className="text-2xl font-black text-slate-700">{(employee.productivity * 100).toFixed(0)}%</p>
+              <p className="text-2xl font-black text-slate-700">{formatPercent(employee.productivity)}</p>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Attendance</p>
-              <p className="text-2xl font-black text-slate-700">{(employee.attendance_score * 100).toFixed(0)}%</p>
+              <p className="text-2xl font-black text-slate-700">{formatPercent(employee.attendance_score)}</p>
             </div>
           </div>
 
@@ -72,7 +116,7 @@ function EmployeeDetailModal({ employee, onClose }) {
               Identified Risk Factors
             </h3>
             <div className="space-y-3">
-              {Array.isArray(insight.issues) ? insight.issues.map((issue, i) => (
+              {insight.issues.length > 0 ? insight.issues.map((issue, i) => (
                 <div key={i} className="flex gap-3 p-3 bg-red-50/30 border border-red-100 rounded-lg text-sm text-red-800">
                   <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
                   {issue}
@@ -98,7 +142,7 @@ function EmployeeDetailModal({ employee, onClose }) {
               Recommended Solutions
             </h3>
             <div className="grid grid-cols-1 gap-3">
-              {Array.isArray(insight.recommendations) ? insight.recommendations.map((rec, i) => (
+              {insight.recommendations.length > 0 ? insight.recommendations.map((rec, i) => (
                 <div key={i} className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
                   <CheckCircle size={20} weight="fill" className="text-emerald-600" />
                   <span className="text-sm font-medium text-emerald-900">{rec}</span>
@@ -113,17 +157,19 @@ function EmployeeDetailModal({ employee, onClose }) {
 }
 
 function RiskBadge({ level }) {
+  const riskLevel = getRiskLevel(level);
+
   return (
     <span
       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight"
-      style={{ color: RISK_COLORS[level], backgroundColor: RISK_BG[level] }}
+      style={{ color: RISK_COLORS[riskLevel], backgroundColor: RISK_BG[riskLevel] }}
     >
-      {level}
+      {riskLevel}
     </span>
   );
 }
 
-function StatCard({ title, value, icon: Icon, color, sub }) {
+function StatCard({ title, value, icon, color, sub }) {
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm transition-all hover:shadow-md">
       <div className="flex justify-between items-start">
@@ -133,7 +179,7 @@ function StatCard({ title, value, icon: Icon, color, sub }) {
           {sub && <p className="text-[11px] text-slate-500 mt-2 font-medium">{sub}</p>}
         </div>
         <div className="p-3 rounded-xl" style={{ backgroundColor: `${color}15` }}>
-          <Icon size={24} color={color} weight="fill" />
+          {icon ? createElement(icon, { size: 24, color, weight: "fill" }) : null}
         </div>
       </div>
     </div>
@@ -154,9 +200,15 @@ const AnalyticsDashboard = () => {
     fetch(`${API_BASE_URL}/api/analytics`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
+      .then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json?.message || "Failed to load analytics");
+        }
+        return json;
+      })
       .then(json => {
-        setData(Array.isArray(json) ? json : []);
+        setData(Array.isArray(json) ? json.map(normalizeEmployee) : []);
         setLoading(false);
       })
       .catch(err => {
@@ -175,6 +227,14 @@ const AnalyticsDashboard = () => {
   const filtered = data.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
 
   if (loading) return <div className="p-10 text-center animate-pulse font-medium text-slate-400">Analyzing Workforce Data...</div>;
+
+  if (error) {
+    return (
+      <div className="p-10 text-center font-medium text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1400px] mx-auto p-6 bg-slate-50 min-h-screen">
@@ -198,7 +258,7 @@ const AnalyticsDashboard = () => {
         </div>
         <div className="flex gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-xs font-bold items-center">
           <Sparkle weight="fill" />
-          POWERED BY GEMINI AI
+          POWERED BY GROQ AI
         </div>
       </div>
 
@@ -238,22 +298,29 @@ const AnalyticsDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-400 font-medium">
+                    No employee analytics available.
+                  </td>
+                </tr>
+              )}
               {filtered.map(emp => (
-                <tr key={emp.name} className="group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedEmployee(emp)}>
+                <tr key={emp._id || emp.employeeId || emp.name} className="group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedEmployee(emp)}>
                   <td className="px-6 py-5">
                     <p className="font-bold text-slate-700">{emp.name}</p>
-                    <p className="text-xs text-slate-400">ID: {emp.employeeId || 'N/A'}</p>
+                    <p className="text-xs text-slate-400">ID: {emp.employeeId}</p>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500" style={{ width: `${emp.productivity * 100}%` }} />
+                        <div className="h-full bg-indigo-500" style={{ width: formatPercent(emp.productivity) }} />
                       </div>
-                      <span className="text-xs font-bold text-slate-600">{(emp.productivity * 100).toFixed(0)}%</span>
+                      <span className="text-xs font-bold text-slate-600">{formatPercent(emp.productivity)}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5 font-bold text-slate-600 text-sm">
-                    {(emp.attendance_score * 100).toFixed(0)}%
+                    {formatPercent(emp.attendance_score)}
                   </td>
                   <td className="px-6 py-5">
                     <RiskBadge level={emp.risk_level} />
