@@ -13,6 +13,7 @@ import profileRouter from "./routes/profile.js";
 import taskRouter from "./routes/task.js";
 import payrollRouter from "./routes/payroll.js";
 import connectToDatabase from "./db/db.js";
+import analyticsRoutes from "./routes/analytics.js";
 
 dotenv.config();
 
@@ -88,6 +89,7 @@ app.use("/api/attendance", attendanceRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/task", taskRouter);
 app.use("/api/payroll", payrollRouter);
+app.use("/api/analytics", analyticsRoutes);
 
 const frontendDistPath = path.resolve(__dirname, "../frontend/dist");
 if (fs.existsSync(frontendDistPath)) {

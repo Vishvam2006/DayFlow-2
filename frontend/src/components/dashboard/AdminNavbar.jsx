@@ -1,7 +1,7 @@
 import React from "react";
 import { useAuth } from "../../context/authContext";
 import { useNavigate, NavLink } from "react-router-dom";
-import { SquaresFour, Buildings, CalendarCheck, ListChecks, SignOut, Lightning, Users, Wallet, UserCircle, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { SquaresFour, Buildings, CalendarCheck, ListChecks, SignOut, Lightning, Users, Wallet, UserCircle, CaretLeft, CaretRight, ChartBar } from "@phosphor-icons/react";
 import API_BASE_URL from "../../config/api.js";
 
 const AdminNavbar = ({ isCollapsed, setIsCollapsed }) => {
@@ -16,6 +16,7 @@ const AdminNavbar = ({ isCollapsed, setIsCollapsed }) => {
     { to: "/admin-dashboard/leaves", icon: CalendarCheck, label: "Leave Requests" },
     { to: "/admin-dashboard/tasks", icon: ListChecks, label: "Task Manager" },
     { to: "/admin-dashboard/payroll", icon: Wallet, label: "Payroll" },
+    { to: "/admin-dashboard/analytics", icon: ChartBar, label: "Analytics" },
     { to: "/admin-dashboard/profile", icon: UserCircle, label: "Profile" },
   ];
 

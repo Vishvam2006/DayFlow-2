@@ -21,6 +21,7 @@ import EmployeeTaskBoard from "./components/tasks/EmployeeTaskBoard";
 import EmployeeManagement from "./components/employee/EmployeeManagement";
 import AdminPayroll from "./components/payroll/AdminPayroll";
 import EmployeePayroll from "./components/payroll/EmployeePayroll";
+import AnalyticsDashboard from "./components/analytics/AnalyticsDashboard";
 
 function App() {
   return (
@@ -49,6 +50,8 @@ function App() {
         <Route path="employees" element={<EmployeeManagement />} />
         <Route path="payroll" element={<AdminPayroll />} />
         <Route path="profile" element={<Profile />} />
+
+        <Route path="analytics" element={<AnalyticsDashboard />} />
       </Route>
 
       <Route
