@@ -84,27 +84,40 @@ const AnalyticsDashboard = () => {
   const [search, setSearch]     = useState("");
 
   /* ── fetch ── */
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    setLoading(true);
-    fetch(`${API_BASE_URL}/api/analytics`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+ /* ── fetch inside AnalyticsDashboard ── */
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  setLoading(true);
+  
+  fetch(`${API_BASE_URL}/api/analytics`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+    .then(async res => {
+      const json = await res.json();
+      
+      // If the response is not OK (e.g., 500 error), throw the error message
+      if (!res.ok) {
+        throw new Error(json.message || `Server Error (${res.status})`);
+      }
+      
+      if (!Array.isArray(json)) {
+        throw new Error("Unexpected API response format");
+      }
+      
+      return json;
     })
-      .then(async res => {
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          throw new Error(`Server returned non-JSON response (${res.status})`);
-        }
-        const json = await res.json();
-        if (!Array.isArray(json)) throw new Error("Unexpected API response format");
-        return json;
-      })
-      .then(json => { setData(json); setLoading(false); })
-      .catch(err => { setError(err.message); setLoading(false); });
-  }, []);
+    .then(json => { 
+      setData(json); 
+      setLoading(false); 
+    })
+    .catch(err => { 
+      setError(err.message); 
+      setLoading(false); 
+    });
+}, []);
 
   /* ── derived data ── */
   const summary = useMemo(() => ({
@@ -237,7 +250,7 @@ const AnalyticsDashboard = () => {
                   <RiskBadge level={emp.risk_level} />
                 </div>
                 <p className="text-[22px] font-bold" style={{ color: RISK_COLORS[emp.risk_level] }}>{emp.risk_score}<span className="text-[11px] font-medium ml-0.5">/100</span></p>
-                <p className="text-[11px] text-[var(--color-text-secondary)] mt-1 leading-snug line-clamp-2">{emp.insight}</p>
+                <p className="text-[11px] text-[var(--color-text-secondary)] mt-1 leading-snug line-clamp-2">{emp.insight?.summary}</p>
               </div>
             ))}
           </div>
@@ -420,12 +433,53 @@ const AnalyticsDashboard = () => {
                     <td className="px-4 py-3">
                       <RiskBadge level={emp.risk_level} />
                     </td>
-                    <td className="px-4 py-3 max-w-[260px]">
-                      <div className="flex items-start gap-1.5">
-                        <Sparkle size={11} weight="fill" className="text-indigo-400 mt-0.5 shrink-0" />
-                        <span className="text-[var(--color-text-secondary)] leading-snug line-clamp-2">{emp.insight}</span>
-                      </div>
-                    </td>
+                    <td className="px-4 py-3 max-w-[320px]">
+  <div className="flex items-start gap-2">
+    <Sparkle size={11} weight="fill" className="text-indigo-400 mt-1 shrink-0" />
+
+    <div className="text-[12px] text-[var(--color-text-secondary)] space-y-1">
+
+      {/* Summary */}
+      <p className="font-semibold text-[var(--color-text-primary)]">
+        {emp.insight?.summary}
+      </p>
+
+      {/* Issues */}
+      <ul className="list-disc ml-4 text-[11px]">
+  {Array.isArray(emp.insight?.issues)
+    ? emp.insight.issues.map((issue, i) => (
+        <li key={i}>{issue}</li>
+      ))
+    : emp.insight?.issues && (
+        <li>{emp.insight.issues}</li>
+      )
+  }
+</ul>
+
+      {/* Impact */}
+      <p className="text-[11px] italic">
+        {emp.insight?.impact}
+      </p>
+
+      {/* Recommendations */}
+      <div className="flex flex-wrap gap-1 mt-1">
+  {Array.isArray(emp.insight?.recommendations)
+    ? emp.insight.recommendations.map((rec, i) => (
+        <span key={i} className="text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
+          {rec}
+        </span>
+      ))
+    : emp.insight?.recommendations && (
+        <span className="text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
+          {emp.insight.recommendations}
+        </span>
+      )
+  }
+</div>
+
+    </div>
+  </div>
+</td>
                   </tr>
                 ))
               )}
