@@ -19,12 +19,14 @@ const userSeed = async () => {
       {
         name: "Admin User",
         email: "admin@dayflow.com",
+        phoneNumber: "+919200000000",
         password: adminPassword,
         role: "admin",
       },
       {
         name: "John Doe",
         email: "john@dayflow.com",
+        phoneNumber: "+919200000001",
         password: employeePassword,
         role: "employee",
         jobTitle: "Software Developer",
@@ -33,6 +35,7 @@ const userSeed = async () => {
       {
         name: "Jane Smith",
         email: "jane@dayflow.com",
+        phoneNumber: "+919200000002",
         password: employeePassword,
         role: "employee",
         jobTitle: "UI/UX Designer",

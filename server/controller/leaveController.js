@@ -1,4 +1,5 @@
 import Leave from "../models/Leave.js";
+import { createLeaveRequest } from "../services/leaveService.js";
 
 const applyLeave = async (req, res) => {
   try {
@@ -11,52 +12,13 @@ const applyLeave = async (req, res) => {
       });
     }
 
-    // ✅ Convert to Date objects
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // normalize
-
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-
-    // ✅ Check past date
-    if (from < today) {
-      return res.status(400).json({
-        success: false,
-        error: "Cannot apply leave for past dates",
-      });
-    }
-
-    // ✅ Optional: toDate should not be before fromDate
-    if (to < from) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid date range",
-      });
-    }
-
-    const overlappingLeave = await Leave.findOne({
-      employee: req.user._id,
-      status: { $in: ["Pending", "Approved"] },
-      fromDate: { $lte: to },
-      toDate: { $gte: from },
-    });
-
-    if (overlappingLeave) {
-      return res.status(409).json({
-        success: false,
-        error: "You already have a leave request for the selected dates",
-      });
-    }
-
-    const leave = new Leave({
-      employee: req.user._id,
+    const leave = await createLeaveRequest({
+      employeeId: req.user._id,
       leaveType,
       fromDate,
       toDate,
       reason,
     });
-
-    await leave.save();
 
     res.status(201).json({
       success: true,
@@ -65,9 +27,9 @@ const applyLeave = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: "Apply leave server error",
+      error: error.statusCode ? error.message : "Apply leave server error",
     });
   }
 };

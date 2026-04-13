@@ -23,6 +23,7 @@ describe("Attendance Integration Tests", () => {
         testUser = new User({
             name: "Test Employee",
             email: "test@example.com",
+            phoneNumber: "+919500000001",
             password: "password123",
             role: "employee"
         });
@@ -43,7 +44,7 @@ describe("Attendance Integration Tests", () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            expect(res.body.message).toBe("Check-In Succesfull");
+            expect(res.body.attendance).toBeDefined();
             
             const attendance = await Attendance.findOne({ employee: testUser._id });
             expect(attendance).toBeTruthy();

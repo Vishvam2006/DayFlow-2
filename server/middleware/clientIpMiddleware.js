@@ -1,12 +1,7 @@
 import net from "net";
 
 const IPV4_LOOPBACK = "127.0.0.1";
-const PRIVATE_RANGES = [
-  /^10\./,
-  /^127\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./,
-];
+const IPV6_LOOPBACK = "::1";
 
 function stripPort(value) {
   if (!value) return "";
@@ -24,16 +19,9 @@ function normalizeCandidate(raw) {
   return value;
 }
 
-function isPrivateIpv4(ip) {
-  return PRIVATE_RANGES.some((rx) => rx.test(ip));
-}
-
 function shouldTrustForwardedHeaders(req) {
-  // When behind trusted proxies, Express populates req.ips.
-  // If not behind proxy, req.ips is usually empty and x-forwarded-for is spoofable.
-  if (Array.isArray(req.ips) && req.ips.length > 0) return true;
-  const remote = normalizeCandidate(req.socket?.remoteAddress || req.connection?.remoteAddress || "");
-  return net.isIPv4(remote) ? isPrivateIpv4(remote) : false;
+  const trustProxySetting = req.app?.get?.("trust proxy");
+  return Boolean(trustProxySetting) && trustProxySetting !== false;
 }
 
 function parseForwardedCandidates(req) {
@@ -43,31 +31,36 @@ function parseForwardedCandidates(req) {
   return String(raw)
     .split(",")
     .map((p) => normalizeCandidate(p))
-    .filter((ip) => net.isIPv4(ip));
+    .filter((ip) => net.isIP(ip));
 }
 
-export function extractClientIPv4(req) {
+export function extractClientIP(req) {
+  const trustForwardedHeaders = shouldTrustForwardedHeaders(req);
   const forwardedCandidates = parseForwardedCandidates(req);
-  // Client is first in XFF chain if proxy is trusted.
-  const xff = forwardedCandidates.length > 0 ? forwardedCandidates[0] : "";
-  const candidates = [
-    xff,
-    req.headers["x-real-ip"],
-    req.ip,
-    req.socket?.remoteAddress,
-    req.connection?.remoteAddress,
-  ];
+
+  const candidates = trustForwardedHeaders
+    ? [
+        forwardedCandidates[0],
+        req.headers["x-real-ip"],
+        req.headers["cf-connecting-ip"],
+        req.ip,
+        req.socket?.remoteAddress,
+        req.connection?.remoteAddress,
+      ]
+    : [req.socket?.remoteAddress, req.connection?.remoteAddress, req.ip];
 
   for (const candidate of candidates) {
     const normalized = normalizeCandidate(candidate);
-    if (net.isIPv4(normalized)) return normalized;
+    if (net.isIP(normalized)) return normalized === IPV6_LOOPBACK ? IPV4_LOOPBACK : normalized;
   }
 
   return "";
 }
 
+export const extractClientIPv4 = extractClientIP;
+
 export function attachClientIp(req, _res, next) {
-  req.clientIP = extractClientIPv4(req);
+  req.clientIP = extractClientIP(req);
   next();
 }
 

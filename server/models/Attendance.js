@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
-
-const IPV4_REGEX =
-  /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+import net from "net";
 
 const attendanceSchema = new mongoose.Schema(
   {
@@ -27,16 +25,36 @@ const attendanceSchema = new mongoose.Schema(
       validate: {
         validator(value) {
           if (!value) return true;
-          return IPV4_REGEX.test(value);
+          return Boolean(net.isIP(String(value).trim()));
         },
-        message: "deviceIP must be a valid IPv4 address",
+        message: "deviceIP must be a valid IP address",
       },
     },
 
     verificationStatus: {
       type: String,
-      enum: ["Verified", "Rejected"],
+      enum: ["Verified", "Flagged", "Rejected"],
       default: "Verified",
+    },
+
+    isFlagged: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    flagReason: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 160,
+    },
+
+    networkName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 80,
     },
 
     checkOut: {
@@ -61,6 +79,7 @@ attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ date: 1 });
 attendanceSchema.index({ deviceIP: 1 });
 attendanceSchema.index({ verificationStatus: 1, date: 1 });
+attendanceSchema.index({ isFlagged: 1, date: 1 });
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 

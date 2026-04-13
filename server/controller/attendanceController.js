@@ -15,20 +15,10 @@ const checkIn = async (req, res) => {
     const todayStart = new Date(`${today}T00:00:00.000`);
     const todayEnd = new Date(`${today}T23:59:59.999`);
     const deviceIP = req.clientIP || extractClientIPv4(req);
-
-    if (!deviceIP) {
-      return sendError(res, 403, "Unable to verify your network. Clock-in denied.");
-    }
-
-    const verification = await verifyIpAgainstCompanyNetwork(deviceIP);
-    if (!verification.authorized) {
-      return sendError(
-        res,
-        403,
-        "Clock-in is allowed only from approved company networks.",
-        { code: verification.reason }
-      );
-    }
+    const verification = deviceIP
+      ? await verifyIpAgainstCompanyNetwork(deviceIP)
+      : { authorized: false, reason: "ip_unavailable", network: null };
+    const isFlagged = !verification.authorized;
 
     const existing = await Attendance.findOne({
       employee: req.user._id,
@@ -55,13 +45,29 @@ const checkIn = async (req, res) => {
       date: today,
       checkIn: new Date(),
       deviceIP,
-      verificationStatus: "Verified",
+      verificationStatus: isFlagged ? "Flagged" : "Verified",
+      isFlagged,
+      flagReason: isFlagged
+        ? verification.reason === "ip_unavailable"
+          ? "Unable to detect public IP"
+          : "Check-in from unapproved network"
+        : "",
+      networkName: verification.network?.officeName || "",
     });
 
     await attendance.save();
 
     return sendSuccess(res, 200, {
-      message: "Check-In Succesfull",
+      message: isFlagged
+        ? "Checked in from an unapproved network and flagged for HR review."
+        : "Check-In Succesfull",
+      isFlagged,
+      networkVerification: {
+        authorized: verification.authorized,
+        code: verification.reason,
+        deviceIP,
+        officeName: verification.network?.officeName || null,
+      },
       attendance,
     });
   } catch (error) {
@@ -179,7 +185,7 @@ const verifyClockInNetwork = async (req, res) => {
       officeName: verification.network?.officeName || null,
       message: verification.authorized
         ? `Connected to ${verification.network.officeName}.`
-        : "Unauthorized Network: Please connect to the Office WiFi to log your hours.",
+        : "This network is not whitelisted. Check-in will be allowed but flagged for HR review.",
     });
   } catch (error) {
     return sendError(res, 500, "Unable to verify network status right now.", {
@@ -188,4 +194,26 @@ const verifyClockInNetwork = async (req, res) => {
   }
 };
 
-export { checkIn, checkOut, getAttendance, getYearAttendance, verifyClockInNetwork };
+const getFlaggedAttendance = async (req, res) => {
+  try {
+    const records = await Attendance.find({ isFlagged: true })
+      .populate("employee", "name email employeeId department")
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    return sendSuccess(res, 200, {
+      records,
+    });
+  } catch (error) {
+    return sendError(res, 500, "Failed to fetch flagged attendance records.");
+  }
+};
+
+export {
+  checkIn,
+  checkOut,
+  getAttendance,
+  getYearAttendance,
+  verifyClockInNetwork,
+  getFlaggedAttendance,
+};

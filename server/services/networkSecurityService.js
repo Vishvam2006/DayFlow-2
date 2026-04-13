@@ -2,7 +2,18 @@ import CompanyNetwork from "../models/CompanyNetwork.js";
 
 export async function getMatchedCompanyNetwork(ip) {
   if (!ip) return null;
-  return CompanyNetwork.findOne({ publicIP: ip }).select("officeName publicIP").lean();
+  const network = await CompanyNetwork.findOne({ publicIP: ip, isActive: true })
+    .select("officeName publicIP description isActive")
+    .lean();
+
+  if (network) {
+    CompanyNetwork.updateOne(
+      { _id: network._id },
+      { $set: { lastMatchedAt: new Date() } }
+    ).catch(() => {});
+  }
+
+  return network;
 }
 
 export async function verifyIpAgainstCompanyNetwork(ip) {

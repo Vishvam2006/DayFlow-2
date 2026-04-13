@@ -17,6 +17,7 @@ describe("Auth Integration Tests", () => {
             const user = new User({
                 name: "Admin User",
                 email: "admin@example.com",
+                phoneNumber: "+919400000001",
                 password: hashedPassword,
                 role: "admin"
             });
@@ -40,6 +41,7 @@ describe("Auth Integration Tests", () => {
             const user = new User({
                 name: "User",
                 email: "user@example.com",
+                phoneNumber: "+919400000002",
                 password: hashedPassword,
                 role: "employee"
             });

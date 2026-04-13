@@ -1,10 +1,12 @@
 import express from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
+import adminMiddleware from "../middleware/adminMiddleware.js";
 import { attachClientIp } from "../middleware/clientIpMiddleware.js";
 import {
     checkIn,
     checkOut,
     getAttendance,
+    getFlaggedAttendance,
     getYearAttendance,
     verifyClockInNetwork,
 } from "../controller/attendanceController.js";
@@ -16,6 +18,7 @@ router.post("/check-out", authMiddleware, checkOut);
 router.get("/today", authMiddleware, getAttendance);
 router.get("/year", authMiddleware, getYearAttendance);
 router.get("/network-status", authMiddleware, attachClientIp, verifyClockInNetwork);
+router.get("/flagged", authMiddleware, adminMiddleware, getFlaggedAttendance);
 
 
 export default router;

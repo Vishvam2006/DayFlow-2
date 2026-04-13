@@ -12,6 +12,7 @@ describe("User Model Tests", () => {
         const validUser = new User({
             name: "John Doe",
             email: "john@example.com",
+            phoneNumber: "+919300000001",
             password: "password123",
             role: "employee"
         });
@@ -23,6 +24,7 @@ describe("User Model Tests", () => {
     test("should fail if name is missing", async () => {
         const userWithoutName = new User({
             email: "john@example.com",
+            phoneNumber: "+919300000002",
             password: "password123",
             role: "employee"
         });
@@ -40,6 +42,7 @@ describe("User Model Tests", () => {
         const userWithInvalidEmail = new User({
             name: "John",
             email: "not-an-email",
+            phoneNumber: "+919300000003",
             password: "password123",
             role: "employee"
         });
@@ -55,10 +58,31 @@ describe("User Model Tests", () => {
         expect(err.errors.email).toBeDefined();
     });
 
+    test("should fail if phoneNumber is not E.164 formatted", async () => {
+        const userWithInvalidPhone = new User({
+            name: "John",
+            email: "john@example.com",
+            phoneNumber: "9300000004",
+            password: "password123",
+            role: "employee"
+        });
+        let err;
+        try {
+            await userWithInvalidPhone.save();
+        } catch (error) {
+            err = error;
+        }
+
+        expect(err).toBeDefined();
+        expect(err.name).toBe("ValidationError");
+        expect(err.errors.phoneNumber).toBeDefined();
+    });
+
     test("should fail for duplicate email", async () => {
         const user1 = new User({
             name: "User 1",
             email: "same@example.com",
+            phoneNumber: "+919300000005",
             password: "password",
             role: "employee"
         });
@@ -67,6 +91,7 @@ describe("User Model Tests", () => {
         const user2 = new User({
             name: "User 2",
             email: "same@example.com",
+            phoneNumber: "+919300000006",
             password: "password",
             role: "employee"
         });

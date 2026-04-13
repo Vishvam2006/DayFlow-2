@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 
+export const E164_PHONE_NUMBER_REGEX = /^\+[1-9]\d{1,14}$/;
+
 const salaryStructureSchema = new mongoose.Schema(
   {
     basicSalary: { type: Number, default: 0, min: 0 },
@@ -22,6 +24,16 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true,
         match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
+    },
+    phoneNumber: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        match: [
+            E164_PHONE_NUMBER_REGEX,
+            "Phone number must be in E.164 format (e.g., +91XXXXXXXXXX)",
+        ],
     },
     password: {
         type: String,

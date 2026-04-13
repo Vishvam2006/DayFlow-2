@@ -18,6 +18,7 @@ const buildAuthUser = (user) => ({
   _id: user._id,
   name: user.name,
   email: user.email,
+  phoneNumber: user.phoneNumber || "",
   role: user.role,
   jobTitle: user.jobTitle || "",
   department: user.department || "",

@@ -54,6 +54,7 @@ const seedData = async () => {
     {
       name: "Aarav Mehta",
       email: "aarav@test.com",
+      phoneNumber: "+919100000001",
       password: "123456",
       role: "employee",
       department: "Engineering",
@@ -71,6 +72,7 @@ const seedData = async () => {
     {
       name: "Riya Sharma",
       email: "riya@test.com",
+      phoneNumber: "+919100000002",
       password: "123456",
       role: "employee",
       department: "Engineering",
@@ -88,6 +90,7 @@ const seedData = async () => {
     {
       name: "Karan Patel",
       email: "karan@test.com",
+      phoneNumber: "+919100000003",
       password: "123456",
       role: "employee",
       department: "Sales",
@@ -105,6 +108,7 @@ const seedData = async () => {
     {
       name: "Neha Verma",
       email: "neha@test.com",
+      phoneNumber: "+919100000004",
       password: "123456",
       role: "employee",
       department: "HR",
@@ -122,6 +126,7 @@ const seedData = async () => {
     {
       name: "Aditya Singh",
       email: "aditya@test.com",
+      phoneNumber: "+919100000005",
       password: "123456",
       role: "employee",
       department: "Engineering",
@@ -153,6 +158,7 @@ const seedData = async () => {
     {
       name: "Dummy User",
       email: "dumvm41@gmail.com",
+      phoneNumber: "+919100000006",
       password: "Dummy123#",
       role: "employee",
       department: "Engineering",
@@ -162,6 +168,7 @@ const seedData = async () => {
     {
       name: "Meet Patel",
       email: "meet.p45822@gmail.com",
+      phoneNumber: "+919100000007",
       password: "Meet.1212",
       role: "employee",
       department: "Engineering",
@@ -191,6 +198,7 @@ const seedData = async () => {
     admin = await User.create({
       name: "Admin",
       email: "admin@dayflow.com",
+      phoneNumber: "+919100000000",
       password: hashedAdmin,
       role: "admin",
     });

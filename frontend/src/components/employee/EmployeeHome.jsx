@@ -132,14 +132,7 @@ const EmployeeHome = () => {
   const showMsg = (text, type) => { setMessage({ text, type }); setTimeout(() => setMessage({ text: "", type: "" }), 3500); };
 
   const handleCheckIn = async () => {
-    const status = await verifyNetworkStatus();
-    if (!status?.authorized) {
-      showMsg(
-        "Unauthorized Network: Please connect to the Office WiFi to log your hours.",
-        "error"
-      );
-      return;
-    }
+    await verifyNetworkStatus();
 
     setLoading((prev) => ({ ...prev, in: true }));
     try {
@@ -147,7 +140,17 @@ const EmployeeHome = () => {
         headers,
         timeout: REQUEST_TIMEOUT_MS,
       });
-      if (r.data.success) { showMsg("Checked in successfully!", "success"); setCheckInTime(r.data.attendance.checkIn); setAttendance(r.data.attendance); }
+      if (r.data.success) {
+        const flagged = Boolean(r.data.isFlagged || r.data.attendance?.isFlagged);
+        showMsg(
+          flagged
+            ? "Warning: Checked in from an unapproved network - flagged for HR review."
+            : "Checked in successfully!",
+          flagged ? "warning" : "success"
+        );
+        setCheckInTime(r.data.attendance.checkIn);
+        setAttendance(r.data.attendance);
+      }
     } catch (e) { showMsg(e.response?.data?.message || "Already checked in today", "error"); }
     setLoading((prev) => ({ ...prev, in: false }));
   };
@@ -203,10 +206,10 @@ const EmployeeHome = () => {
           {!isWorking && !isCheckedOut && (
             <button
               onClick={handleCheckIn}
-              disabled={loading.in || networkGuard.loading || !networkGuard.authorized}
+              disabled={loading.in}
               title={
                 !networkGuard.authorized && !networkGuard.loading
-                  ? "Unauthorized Network: Please connect to the Office WiFi to log your hours."
+                  ? "This check-in will be flagged for HR review."
                   : "Check In"
               }
               style={{
@@ -217,24 +220,26 @@ const EmployeeHome = () => {
                 borderRadius: "9px",
                 border: "none",
                 background:
-                  loading.in || networkGuard.loading || !networkGuard.authorized
+                  loading.in
                     ? "#cbd5e1"
-                    : "linear-gradient(135deg,#059669,#34d399)",
+                    : !networkGuard.authorized && !networkGuard.loading
+                      ? "linear-gradient(135deg,#d97706,#f59e0b)"
+                      : "linear-gradient(135deg,#059669,#34d399)",
                 color: "#fff",
                 fontWeight: 600,
                 fontSize: "13px",
                 cursor:
-                  loading.in || networkGuard.loading || !networkGuard.authorized
-                    ? "not-allowed"
-                    : "pointer",
+                  loading.in ? "not-allowed" : "pointer",
                 boxShadow:
-                  loading.in || networkGuard.loading || !networkGuard.authorized
+                  loading.in
                     ? "none"
-                    : "0 4px 12px rgba(5,150,105,0.3)",
+                    : !networkGuard.authorized && !networkGuard.loading
+                      ? "0 4px 12px rgba(217,119,6,0.25)"
+                      : "0 4px 12px rgba(5,150,105,0.3)",
                 transition: "all 0.2s ease",
               }}
             >
-              <LogIn size={15} /> {networkGuard.loading ? "Checking..." : loading.in ? "..." : "Check In"}
+              <LogIn size={15} /> {loading.in ? "..." : "Check In"}
             </button>
           )}
           {isWorking && (
@@ -252,7 +257,7 @@ const EmployeeHome = () => {
 
       {/* Message */}
       {message.text && (
-        <div style={{ padding: "11px 16px", borderRadius: "9px", marginBottom: "16px", fontSize: "13px", fontWeight: 500, background: message.type === "success" ? "#f0fdf4" : "#fef2f2", border: `1px solid ${message.type === "success" ? "#bbf7d0" : "#fecaca"}`, color: message.type === "success" ? C.green : C.red }}>
+        <div style={{ padding: "11px 16px", borderRadius: "9px", marginBottom: "16px", fontSize: "13px", fontWeight: 500, background: message.type === "success" ? "#f0fdf4" : message.type === "warning" ? "#fffbeb" : "#fef2f2", border: `1px solid ${message.type === "success" ? "#bbf7d0" : message.type === "warning" ? "#fde68a" : "#fecaca"}`, color: message.type === "success" ? C.green : message.type === "warning" ? "#92400e" : C.red }}>
           {message.text}
         </div>
       )}
@@ -278,14 +283,16 @@ const EmployeeHome = () => {
           {networkGuard.loading ? (
             <p style={{ fontSize: "13px", color: C.sub, fontWeight: 500 }}>Checking office network...</p>
           ) : networkGuard.error ? (
-            <p style={{ fontSize: "13px", color: C.red, fontWeight: 500 }}>{networkGuard.error}</p>
+            <p style={{ fontSize: "13px", color: "#92400e", fontWeight: 500 }}>
+              {networkGuard.error} You can still check in, but it may be flagged for HR review.
+            </p>
           ) : networkGuard.authorized ? (
             <p style={{ fontSize: "13px", color: C.indigo, fontWeight: 500 }}>
               Authorized network{networkGuard.officeName ? ` · ${networkGuard.officeName}` : ""}.
             </p>
           ) : (
-            <p style={{ fontSize: "13px", color: C.red, fontWeight: 500 }}>
-              Unauthorized Network: Please connect to the Office WiFi to log your hours.
+            <p style={{ fontSize: "13px", color: "#92400e", fontWeight: 500 }}>
+              This network is not whitelisted. Check-in will be allowed but flagged for HR review.
             </p>
           )}
         </div>
@@ -294,7 +301,7 @@ const EmployeeHome = () => {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", marginBottom: "20px" }}>
         {[
-          { label: "Today's Status", value: !attendance ? "Not Checked In" : isWorking ? "Working" : attendance.status, color: !attendance ? C.sub : isWorking ? C.indigo : attendance.status === "Present" ? C.green : C.red },
+          { label: "Today's Status", value: !attendance ? "Not Checked In" : attendance.isFlagged ? "Flagged" : isWorking ? "Working" : attendance.status, color: !attendance ? C.sub : attendance.isFlagged ? C.amber : isWorking ? C.indigo : attendance.status === "Present" ? C.green : C.red },
           { label: "Pending Leaves", value: pendingRequests, color: C.amber },
           { label: "Tasks Done", value: `${myTasksCount.completed}/${myTasksCount.total}`, color: C.indigo },
           { label: "This Month Pay", value: latestPayroll ? formatCurrency(latestPayroll.breakdown.netSalary) : "Pending", color: latestPayroll ? C.green : C.sub },

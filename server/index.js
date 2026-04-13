@@ -15,18 +15,22 @@ import payrollRouter from "./routes/payroll.js";
 import companyNetworkRouter from "./routes/companyNetwork.js";
 import connectToDatabase from "./db/db.js";
 import analyticsRoutes from "./routes/analytics.js";
+import botRouter from "./routes/bot.js";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 connectToDatabase();
 
 const app = express();
-// Trust proxy with explicit control to reduce header spoofing risk.
-const trustProxy = process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production";
+// Trust forwarded IP headers only when the deployment explicitly opts in.
+// Prefer TRUST_PROXY_HOPS=1 behind a single trusted load balancer.
+const trustProxy = process.env.TRUST_PROXY_HOPS
+  ? Number(process.env.TRUST_PROXY_HOPS)
+  : process.env.TRUST_PROXY === "true";
 app.set("trust proxy", trustProxy);
 
 const normalizeOrigin = (origin) =>
@@ -71,7 +75,8 @@ const corsOptions = {
     "Authorization", 
     "X-Requested-With", 
     "Accept", 
-    "Origin"
+    "Origin",
+    "x-bot-secret-key"
   ],
   preflightContinue: false,
   optionsSuccessStatus: 204
@@ -95,6 +100,7 @@ app.use("/api/task", taskRouter);
 app.use("/api/payroll", payrollRouter);
 app.use("/api/company-network", companyNetworkRouter);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/bot", botRouter);
 
 const frontendDistPath = path.resolve(__dirname, "../frontend/dist");
 if (fs.existsSync(frontendDistPath)) {
