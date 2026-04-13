@@ -27,10 +27,12 @@ connectToDatabase();
 
 const app = express();
 // Trust forwarded IP headers only when the deployment explicitly opts in.
-// Prefer TRUST_PROXY_HOPS=1 behind a single trusted load balancer.
-const trustProxy = process.env.TRUST_PROXY_HOPS
-  ? Number(process.env.TRUST_PROXY_HOPS)
-  : process.env.TRUST_PROXY === "true";
+// Automatically enable for Render.
+const trustProxy = process.env.RENDER === "true" 
+  ? true 
+  : process.env.TRUST_PROXY_HOPS
+    ? Number(process.env.TRUST_PROXY_HOPS)
+    : process.env.TRUST_PROXY === "true";
 app.set("trust proxy", trustProxy);
 
 const normalizeOrigin = (origin) =>
