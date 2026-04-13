@@ -12,6 +12,7 @@ import attendanceRouter from "./routes/attendance.js";
 import profileRouter from "./routes/profile.js";
 import taskRouter from "./routes/task.js";
 import payrollRouter from "./routes/payroll.js";
+import companyNetworkRouter from "./routes/companyNetwork.js";
 import connectToDatabase from "./db/db.js";
 import analyticsRoutes from "./routes/analytics.js";
 
@@ -24,6 +25,9 @@ const port = process.env.PORT || 5000;
 connectToDatabase();
 
 const app = express();
+// Trust proxy with explicit control to reduce header spoofing risk.
+const trustProxy = process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production";
+app.set("trust proxy", trustProxy);
 
 const normalizeOrigin = (origin) =>
   String(origin || "")
@@ -89,6 +93,7 @@ app.use("/api/attendance", attendanceRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/task", taskRouter);
 app.use("/api/payroll", payrollRouter);
+app.use("/api/company-network", companyNetworkRouter);
 app.use("/api/analytics", analyticsRoutes);
 
 const frontendDistPath = path.resolve(__dirname, "../frontend/dist");
