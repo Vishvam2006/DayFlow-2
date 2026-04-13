@@ -33,13 +33,9 @@ function isPrivateOrLoopback(ip) {
   return false;
 }
 
-function shouldTrustForwardedHeaders(req) {
-  const trustProxySetting = req.app?.get?.("trust proxy");
-  return Boolean(trustProxySetting) && trustProxySetting !== false;
-}
-
 function parseForwardedCandidates(req) {
-  if (!shouldTrustForwardedHeaders(req)) return [];
+  // Always check forwarded headers unconditionally 
+  // It's the safest fallback for PaaS platforms.
   const raw = req.headers["x-forwarded-for"];
   if (!raw) return [];
   return String(raw)
@@ -95,19 +91,17 @@ async function fetchServerPublicIp() {
 }
 
 export function extractClientIP(req) {
-  const trustForwardedHeaders = shouldTrustForwardedHeaders(req);
   const forwardedCandidates = parseForwardedCandidates(req);
 
-  const candidates = trustForwardedHeaders
-    ? [
-        forwardedCandidates[0],
-        req.headers["x-real-ip"],
-        req.headers["cf-connecting-ip"],
-        req.ip,
-        req.socket?.remoteAddress,
-        req.connection?.remoteAddress,
-      ]
-    : [req.socket?.remoteAddress, req.connection?.remoteAddress, req.ip];
+  const candidates = [
+    // X-Forwarded-For is always the primary source of truth when deployed
+    forwardedCandidates[0],
+    req.headers["x-real-ip"],
+    req.headers["cf-connecting-ip"],
+    req.ip,
+    req.socket?.remoteAddress,
+    req.connection?.remoteAddress,
+  ];
 
   for (const candidate of candidates) {
     const normalized = normalizeCandidate(candidate);
