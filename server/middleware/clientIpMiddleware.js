@@ -1,7 +1,11 @@
 import net from "net";
+import https from "https";
 
 const IPV4_LOOPBACK = "127.0.0.1";
 const IPV6_LOOPBACK = "::1";
+
+// We fetch the public IP every time detection is needed (e.g., local dev)
+// to ensure it updates instantly when switching WiFi networks.
 
 function stripPort(value) {
   if (!value) return "";
@@ -19,6 +23,16 @@ function normalizeCandidate(raw) {
   return value;
 }
 
+function isPrivateOrLoopback(ip) {
+  if (!ip) return true;
+  if (ip === IPV4_LOOPBACK || ip === IPV6_LOOPBACK) return true;
+  // Private ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+  if (/^10\./.test(ip)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[01])\./.test(ip)) return true;
+  if (/^192\.168\./.test(ip)) return true;
+  return false;
+}
+
 function shouldTrustForwardedHeaders(req) {
   const trustProxySetting = req.app?.get?.("trust proxy");
   return Boolean(trustProxySetting) && trustProxySetting !== false;
@@ -32,6 +46,52 @@ function parseForwardedCandidates(req) {
     .split(",")
     .map((p) => normalizeCandidate(p))
     .filter((ip) => net.isIP(ip));
+}
+
+/**
+ * Fetch the server's real public IP from ipify.
+ * No caching so it updates instantly when network changes.
+ */
+async function fetchServerPublicIp() {
+  try {
+    let ip = "";
+
+    if (typeof fetch !== "undefined") {
+      // Node 18+ native fetch
+      const res = await fetch("https://api.ipify.org?format=json", {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        ip = String(data.ip || "").trim();
+      }
+    } else {
+      // Fallback using Node's built-in https module
+      ip = await new Promise((resolve) => {
+        const req = https.get("https://api.ipify.org?format=json", (res) => {
+          let body = "";
+          res.on("data", (chunk) => { body += chunk; });
+          res.on("end", () => {
+            try {
+              resolve(JSON.parse(body).ip || "");
+            } catch {
+              resolve("");
+            }
+          });
+        });
+        req.on("error", () => resolve(""));
+        req.setTimeout(4000, () => { req.destroy(); resolve(""); });
+      });
+    }
+
+    if (ip && net.isIP(ip) && !isPrivateOrLoopback(ip)) {
+      return ip;
+    }
+  } catch (err) {
+    // Silently continue
+  }
+
+  return "";
 }
 
 export function extractClientIP(req) {
@@ -59,8 +119,24 @@ export function extractClientIP(req) {
 
 export const extractClientIPv4 = extractClientIP;
 
-export function attachClientIp(req, _res, next) {
-  req.clientIP = extractClientIP(req);
+/**
+ * Middleware that attaches req.clientIP.
+ *
+ * If the detected IP is a loopback or private address (which happens when the
+ * frontend and backend run on the same machine, or behind an internal reverse
+ * proxy without trust-proxy configured), we fall back to fetching the real
+ * public IP from ipify so that the whitelist comparison works correctly.
+ */
+export async function attachClientIp(req, _res, next) {
+  const detected = extractClientIP(req);
+
+  if (detected && !isPrivateOrLoopback(detected)) {
+    // Already a real public IP (e.g. behind a cloud reverse-proxy)
+    req.clientIP = detected;
+    return next();
+  }
+
+  // Loopback / private — fetch the server's actual public IP
+  req.clientIP = await fetchServerPublicIp();
   next();
 }
-
