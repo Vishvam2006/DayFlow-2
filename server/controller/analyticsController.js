@@ -1,125 +1,209 @@
+import AnalyticsInsight from "../models/AnalyticsInsight.js";
+import {
+  computeAnalyticsPeriods,
+  computeAndCacheInsights,
+} from "../services/analyticsInsightsService.js";
 import User from "../models/User.js";
-import Attendance from "../models/Attendance.js";
-import Leave from "../models/Leave.js";
-import Task from "../models/Task.js";
-import { generateInsightsBatch } from "../services/groqService.js";
 
-const clampRatio = (value) => {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return 0;
-  return Math.min(Math.max(number, 0), 1);
+const defaultInsight = {
+  summary: "Analysis pending",
+  trend_analysis: "N/A",
+  burnout_risk_indicator: "Low",
+  issues: [],
+  impact: "N/A",
+  recommendations: [],
+  manager_action_items: [],
 };
 
-const safeDivide = (numerator, denominator) => {
-  const top = Number(numerator);
-  const bottom = Number(denominator);
-  if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= 0) return 0;
-  return clampRatio(top / bottom);
-};
-
-const getInclusiveDayCount = (fromDate, toDate) => {
-  const from = new Date(fromDate);
-  const to = new Date(toDate);
-
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
-    return 0;
-  }
-
-  from.setHours(0, 0, 0, 0);
-  to.setHours(0, 0, 0, 0);
-
-  return Math.floor((to - from) / (1000 * 60 * 60 * 24)) + 1;
-};
-
-const getAttendanceValue = (status) => {
-  if (status === "Present") return 1;
-  if (status === "Half Day") return 0.5;
-  return 0;
-};
-
-const getRiskLevel = (riskScore) => {
-  if (riskScore >= 70) return "High";
-  if (riskScore >= 40) return "Medium";
-  return "Low";
-};
+function mapDocToResponse(d) {
+  return {
+    _id: d.employee?._id || d.employee,
+    name: d.employee?.name || "",
+    email: d.employee?.email || "",
+    employeeId: d.employee?.employeeId || "",
+    department: d.employee?.department || "",
+    jobTitle: d.employee?.jobTitle || "",
+    performance_score: d.performance?.score ?? 0,
+    risk_score: d.performance?.riskScore ?? 0,
+    risk_level: d.performance?.riskLevel || "Low",
+    metrics: d.metrics || {},
+    insight: { ...defaultInsight, ...(d.insight || {}) },
+    period: {
+      windowDays: d.windowDays,
+      baselineDays: d.baselineDays,
+      periodStart: d.periodStart,
+      periodEnd: d.periodEnd,
+      computedAt: d.computedAt,
+      expiresAt: d.expiresAt,
+    },
+  };
+}
 
 export const getAnalytics = async (req, res) => {
   try {
-    const users = await User.find({ role: "employee" }).select(
-      "name email employeeId department jobTitle role",
-    );
+    const now = new Date();
+    const windowDays = Number(req.query.windowDays || 30);
+    const baselineDays = Number(req.query.baselineDays || 90);
 
-    if (!users || users.length === 0) {
-      return res.status(200).json([]);
+    const periods = computeAnalyticsPeriods({ now, windowDays, baselineDays });
+
+    let docs = await AnalyticsInsight.find({
+      periodStart: periods.windowStart,
+      periodEnd: periods.windowEnd,
+      windowDays: periods.windowDays,
+      baselineDays: periods.baselineDays,
+      promptVersion: "v2-sliding-window",
+    })
+      .populate("employee", "name email employeeId department jobTitle")
+      .lean();
+
+    if (!docs || docs.length === 0) {
+      const latestDoc = await AnalyticsInsight.findOne({
+        windowDays: periods.windowDays,
+        baselineDays: periods.baselineDays,
+        promptVersion: "v2-sliding-window",
+      })
+        .sort({ periodEnd: -1 })
+        .select("periodStart periodEnd")
+        .lean();
+
+      if (latestDoc) {
+        docs = await AnalyticsInsight.find({
+          periodStart: latestDoc.periodStart,
+          periodEnd: latestDoc.periodEnd,
+          windowDays: periods.windowDays,
+          baselineDays: periods.baselineDays,
+          promptVersion: "v2-sliding-window",
+        })
+          .populate("employee", "name email employeeId department jobTitle")
+          .lean();
+      }
     }
 
-    const enrichedUsers = await Promise.all(
-      users.map(async (u) => {
-        const attendanceRecords = await Attendance.find({ employee: u._id });
-        const attendedDays = attendanceRecords.reduce(
-          (total, record) => total + getAttendanceValue(record.status),
-          0,
-        );
-        const attendanceScore = safeDivide(attendedDays, attendanceRecords.length);
+    const response = (docs || []).map(mapDocToResponse);
 
-        const approvedLeaves = await Leave.find({ employee: u._id, status: "Approved" });
-        const approvedLeaveDays = approvedLeaves.reduce(
-          (total, leave) => total + getInclusiveDayCount(leave.fromDate, leave.toDate),
-          0,
-        );
-        const trackedDays = attendanceRecords.length + approvedLeaveDays;
-        const leaveRatio = safeDivide(approvedLeaveDays, trackedDays);
+    if (response.length > 0) {
+      return res.status(200).json(response);
+    }
 
-        const tasks = await Task.find({ assignedTo: u._id });
-        const completed = tasks.filter((t) => t.status === "Completed").length;
-        const productivity = safeDivide(completed, tasks.length);
-
-        const riskScore =
-          (1 - productivity) * 40 +
-          leaveRatio * 30 +
-          (1 - attendanceScore) * 30;
-
-        return {
-          _id: u._id,
-          name: u.name,
-          email: u.email,
-          employeeId: u.employeeId || "",
-          department: u.department || "",
-          jobTitle: u.jobTitle || "",
-          productivity,
-          leave_ratio: leaveRatio,
-          attendance_score: attendanceScore,
-          risk_score: Math.round(Math.min(Math.max(riskScore, 0), 100)),
-          metrics: {
-            attendance_records: attendanceRecords.length,
-            attended_days: attendedDays,
-            approved_leave_days: approvedLeaveDays,
-            tasks_assigned: tasks.length,
-            tasks_completed: completed,
-          },
-        };
-      })
+    // Fast fallback: return employee list with pending analysis (no heavy compute).
+    const users = await User.find({ role: "employee" }).select(
+      "name email employeeId department jobTitle role"
     );
 
-    const insightsRaw = await generateInsightsBatch(enrichedUsers);
-    const insights = Array.isArray(insightsRaw) ? insightsRaw.filter(Boolean) : [];
+    const pending = (users || []).map((u) => ({
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      employeeId: u.employeeId || "",
+      department: u.department || "",
+      jobTitle: u.jobTitle || "",
+      performance_score: 0,
+      risk_score: 0,
+      risk_level: "Low",
+      metrics: {},
+      insight: defaultInsight,
+      period: {
+        windowDays: periods.windowDays,
+        baselineDays: periods.baselineDays,
+        periodStart: periods.windowStart,
+        periodEnd: periods.windowEnd,
+        computedAt: null,
+        expiresAt: null,
+      },
+    }));
 
-    const finalData = enrichedUsers.map((user) => {
-      const insightObj = insights.find((i) => i?.name === user.name);
+    return res.status(200).json(pending);
+  } catch (err) {
+    console.error("[AnalyticsController] Error:", err.message);
+    return res.status(500).json({ message: err.message });
+  }
+};
 
-      return {
-        ...user,
-        risk_level: getRiskLevel(user.risk_score),
-        insight: insightObj?.insight || {
-          summary: "Analysis pending",
-          issues: [],
-          impact: "N/A",
-          recommendations: [],
-        },
-      };
+export const getEmployeeAnalytics = async (req, res) => {
+  try {
+    const employeeId = req.params.employeeId;
+    const now = new Date();
+    const windowDays = Number(req.query.windowDays || 30);
+    const baselineDays = Number(req.query.baselineDays || 90);
+
+    const periods = computeAnalyticsPeriods({ now, windowDays, baselineDays });
+
+    let doc = await AnalyticsInsight.findOne({
+      employee: employeeId,
+      periodStart: periods.windowStart,
+      periodEnd: periods.windowEnd,
+      windowDays: periods.windowDays,
+      baselineDays: periods.baselineDays,
+      promptVersion: "v2-sliding-window",
+    })
+      .populate("employee", "name email employeeId department jobTitle")
+      .lean();
+
+    if (!doc) {
+      doc = await AnalyticsInsight.findOne({
+        employee: employeeId,
+        windowDays: periods.windowDays,
+        baselineDays: periods.baselineDays,
+        promptVersion: "v2-sliding-window",
+      })
+        .sort({ periodEnd: -1 })
+        .populate("employee", "name email employeeId department jobTitle")
+        .lean();
+    }
+
+    if (doc) return res.status(200).json(mapDocToResponse(doc));
+
+    const user = await User.findById(employeeId).select(
+      "name email employeeId department jobTitle role"
+    );
+    if (!user) return res.status(404).json({ message: "Employee not found" });
+
+    return res.status(200).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      employeeId: user.employeeId || "",
+      department: user.department || "",
+      jobTitle: user.jobTitle || "",
+      performance_score: 0,
+      risk_score: 0,
+      risk_level: "Low",
+      metrics: {},
+      insight: defaultInsight,
+      period: {
+        windowDays: periods.windowDays,
+        baselineDays: periods.baselineDays,
+        periodStart: periods.windowStart,
+        periodEnd: periods.windowEnd,
+        computedAt: null,
+        expiresAt: null,
+      },
+    });
+  } catch (err) {
+    console.error("[AnalyticsController] Error:", err.message);
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+export const recomputeAnalyticsNow = async (req, res) => {
+  try {
+    const windowDays = Number(req.body?.windowDays || 30);
+    const baselineDays = Number(req.body?.baselineDays || 90);
+
+    computeAndCacheInsights({
+      now: new Date(),
+      windowDays,
+      baselineDays,
+    }).catch((err) => {
+      console.error("[AnalyticsController] Recompute failed:", err?.message || err);
     });
 
-    return res.status(200).json(finalData);
+    return res.status(202).json({
+      message: "Analytics recompute started.",
+      windowDays,
+      baselineDays,
+    });
   } catch (err) {
     console.error("[AnalyticsController] Error:", err.message);
     return res.status(500).json({ message: err.message });

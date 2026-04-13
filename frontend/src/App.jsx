@@ -22,6 +22,7 @@ import EmployeeManagement from "./components/employee/EmployeeManagement";
 import AdminPayroll from "./components/payroll/AdminPayroll";
 import EmployeePayroll from "./components/payroll/EmployeePayroll";
 import AnalyticsDashboard from "./components/analytics/AnalyticsDashboard";
+import CompanyNetworkManager from "./components/admin/CompanyNetworkManager";
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
         <Route path="profile" element={<Profile />} />
 
         <Route path="analytics" element={<AnalyticsDashboard />} />
+        <Route path="network" element={<CompanyNetworkManager />} />
       </Route>
 
       <Route

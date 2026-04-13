@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { NavLink } from "react-router-dom";
-import { Clock, LogIn, LogOut, CheckCircle2, TrendingUp, CalendarPlus, ClipboardList } from "lucide-react";
+import { Clock, LogIn, LogOut, CheckCircle2, TrendingUp, ClipboardList } from "lucide-react";
 import { useAuth } from "../../context/authContext";
 import API_BASE_URL from "../../config/api.js";
 import { formatCurrency, getCurrentMonthValue } from "../../utils/payroll.js";
 
 const C = { white: "#fff", bg: "#f4f6f9", border: "#e2e8f0", text: "#0f172a", sub: "#64748b", muted: "#94a3b8", indigo: "#4f46e5", green: "#059669", red: "#dc2626", amber: "#d97706" };
+const REQUEST_TIMEOUT_MS = 8000;
 
 const EmployeeHome = () => {
   const { user } = useAuth();
@@ -18,6 +19,14 @@ const EmployeeHome = () => {
   const [myTasksCount, setMyTasksCount] = useState({ total: 0, completed: 0 });
   const [loading, setLoading] = useState({ in: false, out: false });
   const [latestPayroll, setLatestPayroll] = useState(null);
+  const [panelWarning, setPanelWarning] = useState("");
+  const [networkGuard, setNetworkGuard] = useState({
+    loading: true,
+    authorized: false,
+    officeName: "",
+    message: "",
+    error: "",
+  });
 
   const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
 
@@ -26,6 +35,7 @@ const EmployeeHome = () => {
     fetchPendingLeaves();
     fetchMyTasks();
     fetchPayroll();
+    verifyNetworkStatus();
   }, []);
 
   useEffect(() => {
@@ -39,55 +49,119 @@ const EmployeeHome = () => {
 
   const getTodayAttendance = async () => {
     try {
-      const r = await axios.get(`${API_BASE_URL}/api/attendance/today`, { headers });
+      const r = await axios.get(`${API_BASE_URL}/api/attendance/today`, { headers, timeout: REQUEST_TIMEOUT_MS });
       if (r.data.success && r.data.attendance) { setAttendance(r.data.attendance); setCheckInTime(r.data.attendance.checkIn); }
-    } catch (e) {}
+    } catch (e) {
+      setPanelWarning("Some dashboard data is unavailable right now. Please refresh.");
+    }
   };
 
   const fetchPendingLeaves = async () => {
     try {
-      const r = await axios.get(`${API_BASE_URL}/api/leave/my-leaves`, { headers });
+      const r = await axios.get(`${API_BASE_URL}/api/leave/my-leaves`, { headers, timeout: REQUEST_TIMEOUT_MS });
       if (r.data.success) setPendingRequests(r.data.count);
-    } catch (e) {}
+    } catch (e) {
+      setPanelWarning("Some dashboard data is unavailable right now. Please refresh.");
+    }
   };
 
   const fetchMyTasks = async () => {
     try {
-      const r = await axios.get(`${API_BASE_URL}/api/task/my-tasks`, { headers });
+      const r = await axios.get(`${API_BASE_URL}/api/task/my-tasks`, { headers, timeout: REQUEST_TIMEOUT_MS });
       if (r.data.success) setMyTasksCount({ total: r.data.tasks.length, completed: r.data.tasks.filter(t => t.status === "Completed").length });
-    } catch (e) {}
+    } catch (e) {
+      setPanelWarning("Some dashboard data is unavailable right now. Please refresh.");
+    }
   };
 
   const fetchPayroll = async () => {
     try {
       const r = await axios.get(`${API_BASE_URL}/api/payroll/me`, {
         headers,
+        timeout: REQUEST_TIMEOUT_MS,
         params: { month: getCurrentMonthValue() },
       });
       if (r.data.success) {
         setLatestPayroll(r.data.payrolls?.[0] || null);
       }
-    } catch (e) {}
+    } catch (e) {
+      setPanelWarning("Some dashboard data is unavailable right now. Please refresh.");
+    }
+  };
+
+  const verifyNetworkStatus = async () => {
+    setNetworkGuard((prev) => ({ ...prev, loading: true, error: "" }));
+    try {
+      const r = await axios.get(`${API_BASE_URL}/api/attendance/network-status`, {
+        headers,
+        timeout: REQUEST_TIMEOUT_MS,
+      });
+      if (r.data?.success) {
+        setNetworkGuard({
+          loading: false,
+          authorized: Boolean(r.data.authorized),
+          officeName: r.data.officeName || "",
+          message: r.data.message || "",
+          error: "",
+        });
+        return r.data;
+      }
+      setNetworkGuard({
+        loading: false,
+        authorized: false,
+        officeName: "",
+        message: "",
+        error: "Unable to validate your network. Please try again.",
+      });
+      return null;
+    } catch (e) {
+      setNetworkGuard({
+        loading: false,
+        authorized: false,
+        officeName: "",
+        message: "",
+        error:
+          e?.code === "ECONNABORTED"
+            ? "Network verification timed out. Please try again."
+            : e?.response?.data?.message || "Unable to validate your network. Please try again.",
+      });
+      return null;
+    }
   };
 
   const showMsg = (text, type) => { setMessage({ text, type }); setTimeout(() => setMessage({ text: "", type: "" }), 3500); };
 
   const handleCheckIn = async () => {
-    setLoading({ ...loading, in: true });
+    const status = await verifyNetworkStatus();
+    if (!status?.authorized) {
+      showMsg(
+        "Unauthorized Network: Please connect to the Office WiFi to log your hours.",
+        "error"
+      );
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, in: true }));
     try {
-      const r = await axios.post(`${API_BASE_URL}/api/attendance/check-in`, {}, { headers });
+      const r = await axios.post(`${API_BASE_URL}/api/attendance/check-in`, {}, {
+        headers,
+        timeout: REQUEST_TIMEOUT_MS,
+      });
       if (r.data.success) { showMsg("Checked in successfully!", "success"); setCheckInTime(r.data.attendance.checkIn); setAttendance(r.data.attendance); }
     } catch (e) { showMsg(e.response?.data?.message || "Already checked in today", "error"); }
-    setLoading({ ...loading, in: false });
+    setLoading((prev) => ({ ...prev, in: false }));
   };
 
   const handleCheckOut = async () => {
-    setLoading({ ...loading, out: true });
+    setLoading((prev) => ({ ...prev, out: true }));
     try {
-      const r = await axios.post(`${API_BASE_URL}/api/attendance/check-out`, {}, { headers });
+      const r = await axios.post(`${API_BASE_URL}/api/attendance/check-out`, {}, {
+        headers,
+        timeout: REQUEST_TIMEOUT_MS,
+      });
       if (r.data.success) { showMsg("Checked out successfully!", "success"); setAttendance(r.data.attendance); }
     } catch (e) { showMsg(e.response?.data?.message || "Please check in first", "error"); }
-    setLoading({ ...loading, out: false });
+    setLoading((prev) => ({ ...prev, out: false }));
   };
 
   const isWorking = checkInTime && !attendance?.checkOut;
@@ -127,8 +201,40 @@ const EmployeeHome = () => {
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
           {!isWorking && !isCheckedOut && (
-            <button onClick={handleCheckIn} disabled={loading.in} style={{ display: "flex", alignItems: "center", gap: "7px", padding: "11px 20px", borderRadius: "9px", border: "none", background: "linear-gradient(135deg,#059669,#34d399)", color: "#fff", fontWeight: 600, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(5,150,105,0.3)" }}>
-              <LogIn size={15} /> {loading.in ? "…" : "Check In"}
+            <button
+              onClick={handleCheckIn}
+              disabled={loading.in || networkGuard.loading || !networkGuard.authorized}
+              title={
+                !networkGuard.authorized && !networkGuard.loading
+                  ? "Unauthorized Network: Please connect to the Office WiFi to log your hours."
+                  : "Check In"
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                padding: "11px 20px",
+                borderRadius: "9px",
+                border: "none",
+                background:
+                  loading.in || networkGuard.loading || !networkGuard.authorized
+                    ? "#cbd5e1"
+                    : "linear-gradient(135deg,#059669,#34d399)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "13px",
+                cursor:
+                  loading.in || networkGuard.loading || !networkGuard.authorized
+                    ? "not-allowed"
+                    : "pointer",
+                boxShadow:
+                  loading.in || networkGuard.loading || !networkGuard.authorized
+                    ? "none"
+                    : "0 4px 12px rgba(5,150,105,0.3)",
+                transition: "all 0.2s ease",
+              }}
+            >
+              <LogIn size={15} /> {networkGuard.loading ? "Checking..." : loading.in ? "..." : "Check In"}
             </button>
           )}
           {isWorking && (
@@ -148,6 +254,40 @@ const EmployeeHome = () => {
       {message.text && (
         <div style={{ padding: "11px 16px", borderRadius: "9px", marginBottom: "16px", fontSize: "13px", fontWeight: 500, background: message.type === "success" ? "#f0fdf4" : "#fef2f2", border: `1px solid ${message.type === "success" ? "#bbf7d0" : "#fecaca"}`, color: message.type === "success" ? C.green : C.red }}>
           {message.text}
+        </div>
+      )}
+      {panelWarning && (
+        <div style={{ padding: "11px 16px", borderRadius: "9px", marginBottom: "16px", fontSize: "13px", fontWeight: 500, background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e" }}>
+          {panelWarning}
+        </div>
+      )}
+
+      {!isWorking && !isCheckedOut && (
+        <div
+          style={{
+            ...card,
+            marginBottom: "16px",
+            padding: "14px 16px",
+            borderColor: networkGuard.error || !networkGuard.authorized ? "#fecaca" : "#bfdbfe",
+            background: networkGuard.error || !networkGuard.authorized ? "#fff7f7" : "#f8fbff",
+          }}
+        >
+          <p style={{ fontSize: "11px", fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: "6px" }}>
+            Network Verification
+          </p>
+          {networkGuard.loading ? (
+            <p style={{ fontSize: "13px", color: C.sub, fontWeight: 500 }}>Checking office network...</p>
+          ) : networkGuard.error ? (
+            <p style={{ fontSize: "13px", color: C.red, fontWeight: 500 }}>{networkGuard.error}</p>
+          ) : networkGuard.authorized ? (
+            <p style={{ fontSize: "13px", color: C.indigo, fontWeight: 500 }}>
+              Authorized network{networkGuard.officeName ? ` · ${networkGuard.officeName}` : ""}.
+            </p>
+          ) : (
+            <p style={{ fontSize: "13px", color: C.red, fontWeight: 500 }}>
+              Unauthorized Network: Please connect to the Office WiFi to log your hours.
+            </p>
+          )}
         </div>
       )}
 
