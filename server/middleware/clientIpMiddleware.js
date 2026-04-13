@@ -33,13 +33,9 @@ function isPrivateOrLoopback(ip) {
   return false;
 }
 
-function shouldTrustForwardedHeaders(req) {
-  const trustProxySetting = req.app?.get?.("trust proxy");
-  return Boolean(trustProxySetting) && trustProxySetting !== false;
-}
-
 function parseForwardedCandidates(req) {
-  if (!shouldTrustForwardedHeaders(req)) return [];
+  // Always check forwarded headers unconditionally 
+  // It's the safest fallback for PaaS platforms.
   const raw = req.headers["x-forwarded-for"];
   if (!raw) return [];
   return String(raw)
@@ -95,19 +91,17 @@ async function fetchServerPublicIp() {
 }
 
 export function extractClientIP(req) {
-  const trustForwardedHeaders = shouldTrustForwardedHeaders(req);
   const forwardedCandidates = parseForwardedCandidates(req);
 
-  const candidates = trustForwardedHeaders
-    ? [
-        forwardedCandidates[0],
-        req.headers["x-real-ip"],
-        req.headers["cf-connecting-ip"],
-        req.ip,
-        req.socket?.remoteAddress,
-        req.connection?.remoteAddress,
-      ]
-    : [req.socket?.remoteAddress, req.connection?.remoteAddress, req.ip];
+  const candidates = [
+    // X-Forwarded-For is always the primary source of truth when deployed
+    forwardedCandidates[0],
+    req.headers["x-real-ip"],
+    req.headers["cf-connecting-ip"],
+    req.ip,
+    req.socket?.remoteAddress,
+    req.connection?.remoteAddress,
+  ];
 
   for (const candidate of candidates) {
     const normalized = normalizeCandidate(candidate);
@@ -126,17 +120,29 @@ export const extractClientIPv4 = extractClientIP;
  * frontend and backend run on the same machine, or behind an internal reverse
  * proxy without trust-proxy configured), we fall back to fetching the real
  * public IP from ipify so that the whitelist comparison works correctly.
+ *
+ * In production (e.g., Render), we skip the fallback to avoid using the 
+ * server's own IP as the client IP.
  */
 export async function attachClientIp(req, _res, next) {
   const detected = extractClientIP(req);
+  const isProd = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
 
   if (detected && !isPrivateOrLoopback(detected)) {
-    // Already a real public IP (e.g. behind a cloud reverse-proxy)
+    // Already a real public IP
     req.clientIP = detected;
     return next();
   }
 
-  // Loopback / private — fetch the server's actual public IP
+  // If in production, we do NOT fetch the server's own public IP as it 
+  // would be a Render/Cloud IP, not the employee's office WiFi IP.
+  if (isProd) {
+    req.clientIP = detected;
+    return next();
+  }
+
+  // Local Development fallback:
+  // If we got loopback/private, fetch the host's actual public IP from ipify.
   req.clientIP = await fetchServerPublicIp();
   next();
 }

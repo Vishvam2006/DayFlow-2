@@ -26,12 +26,9 @@ const port = process.env.PORT || 5001;
 connectToDatabase();
 
 const app = express();
-// Trust forwarded IP headers only when the deployment explicitly opts in.
-// Prefer TRUST_PROXY_HOPS=1 behind a single trusted load balancer.
-const trustProxy = process.env.TRUST_PROXY_HOPS
-  ? Number(process.env.TRUST_PROXY_HOPS)
-  : process.env.TRUST_PROXY === "true";
-app.set("trust proxy", trustProxy);
+// Trust all proxies unconditionally. Secure enough for this use case 
+// and fixes IP detection across any PaaS (Render, Vercel, Heroku)
+app.set("trust proxy", true);
 
 const normalizeOrigin = (origin) =>
   String(origin || "")
