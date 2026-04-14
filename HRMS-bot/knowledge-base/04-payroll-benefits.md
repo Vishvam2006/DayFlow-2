@@ -1,22 +1,32 @@
-# Dayflow HRMS - Payroll & Benefits
+# Dayflow HRMS - Payroll and Compensation Guidance
 
-## 1. Payroll Cycle
-- **Payment Schedule**: Employees are paid on the last business day of every month.
-- **Method**: Direct deposit to the bank account provided during onboarding.
-- **Payslips**: Available for download on the HR Portal by the 25th of each month.
+## Payroll Features in Dayflow HRMS
+Payroll in Dayflow HRMS is generated through the admin dashboard and can be viewed by employees through the employee dashboard.
 
-## 2. Health & Wellness
-- **Medical Insurance**: Comprehensive coverage including dental and vision. Details are provided in the "Benefits Guide" on the portal.
-- **Gym Membership**: A monthly reimbursement of up to $50 for gym or fitness class memberships.
-- **Mental Health**: Access to our Employee Assistance Program (EAP) which offers 5 free counseling sessions per year.
+The payroll module currently supports:
+- Payroll generation by month
+- Employee payroll history view
+- Payroll detail access by record
+- Salary structure updates by authorized admin users
 
-## 3. Retirement Plans
-- **Retirement or Savings Plan**: Eligibility and contribution rules are communicated by HR based on location and employment type.
-- **Vesting**: Company matching contributions are fully vested after 2 years of service.
+## Data Used for Payroll
+Payroll generation uses:
+- Employee salary structure
+- Attendance records for the selected month
+- Approved leave records for the selected month
 
-## 4. Professional Development
-- **Tuition Reimbursement**: Up to $3,000 per year for relevant courses or certifications, subject to manager approval.
-- **Learning Platform**: Free access to LinkedIn Learning for all full-time employees.
+The bot may explain that payroll depends on attendance and approved leave, but it must not disclose another employee's compensation information.
 
-## 5. Referral Program
-- For every successful hire referred by an employee, a bonus of $1,000 is paid out after the new hire completes their 90-day probation period.
+## Employee Access Rules
+- Employees may view their own payroll records.
+- Admin users may view and generate payroll across employees.
+- Detailed salary structure changes are admin-managed.
+
+## Safe Response Rules
+- If an employee asks for another person's salary, payslip, or compensation details, the bot must refuse politely.
+- If an employee asks about their own payroll and precise values are not available in system context, the bot should guide them to the Payslips section in the employee dashboard.
+- If the employee asks when payroll is generated, the bot should say that payroll is generated through the admin payroll module for a selected month.
+
+## Related Dashboard References
+- Employee dashboard: Payslips
+- Admin dashboard: Payroll

@@ -14,6 +14,8 @@ import {
   type VerifiedEmployee,
 } from '../hrms/employeeVerifier.js';
 import { handleLeaveRequestFlow } from '../leave/stateMachine.js';
+import { createLeaveNotificationWorker } from '../leave/notificationWorker.js';
+import { handleAttendanceIntent } from '../attendance/handler.js';
 import { handleTaskCommand } from '../tasks/commands.js';
 import { hrmsApi } from '../hrms/client.js';
 
@@ -44,6 +46,7 @@ export async function createWhatsAppClient(
     logger: logger.child({ module: 'baileys' }) as any,
     getMessage: async () => undefined,
   });
+  const leaveNotificationWorker = createLeaveNotificationWorker(sock);
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -72,7 +75,7 @@ export async function createWhatsAppClient(
 
       if (results) {
         for (const r of results) {
-          if (r.exists && r.lid && r.jid) {
+          if (r.exists && typeof r.lid === 'string' && typeof r.jid === 'string') {
             const lidJid = r.lid.endsWith('@lid') ? r.lid : `${r.lid}@lid`;
             lidToPhoneJid.set(lidJid, r.jid);
             logger.info({ lidJid, phoneJid: r.jid }, 'LID → phone mapping established');
@@ -103,6 +106,7 @@ export async function createWhatsAppClient(
 
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
     if (connection === 'close') {
+      leaveNotificationWorker.stop();
       const shouldReconnect =
         (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
       logger.info({ shouldReconnect }, 'Connection closed');
@@ -113,6 +117,7 @@ export async function createWhatsAppClient(
       buildLidMap().catch((err) =>
         logger.error({ err }, 'Error during initial LID map build'),
       );
+      leaveNotificationWorker.start();
     }
 
     if (qr) {
@@ -188,6 +193,13 @@ export async function createWhatsAppClient(
 
         if (leaveFlowReply) {
           await sock.sendMessage(jid, { text: leaveFlowReply });
+          continue;
+        }
+
+        const attendanceReply = await handleAttendanceIntent(text, employee);
+
+        if (attendanceReply) {
+          await sock.sendMessage(jid, { text: attendanceReply });
           continue;
         }
 

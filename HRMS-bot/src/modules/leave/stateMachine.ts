@@ -1,8 +1,11 @@
-import { applyLeave } from '../hrms/leaves.js';
+import { applyLeave, type ApplyLeavePayload } from '../hrms/leaves.js';
 import type { VerifiedEmployee } from '../hrms/employeeVerifier.js';
 
+type LeaveType = NonNullable<ApplyLeavePayload['leaveType']>;
+
 type LeaveStep =
-  | 'AWAITING_LEAVE_DATES'
+  | 'AWAITING_LEAVE_TYPE'
+  | 'AWAITING_LEAVE_START_DATE'
   | 'AWAITING_LEAVE_END_DATE'
   | 'AWAITING_LEAVE_REASON'
   | 'AWAITING_LEAVE_CONFIRMATION';
@@ -10,20 +13,29 @@ type LeaveStep =
 type LeaveState = {
   step: LeaveStep;
   employeeId: string;
+  leaveType?: LeaveType;
   fromDate?: string;
   toDate?: string;
   reason?: string;
   updatedAt: number;
 };
 
-const leaveStates = new Map<string, LeaveState>();
-const LEAVE_TRIGGER_PATTERN = /^\s*apply\s+for\s+leave\s*$/i;
+type LeaveSubmission = (
+  payload: ApplyLeavePayload,
+) => Promise<{ success: boolean; error?: string; message?: string }>;
+
+type LeaveFlowOptions = {
+  submitLeave?: LeaveSubmission;
+  now?: () => Date;
+};
+
+const LEAVE_TYPES: LeaveType[] = ['Casual', 'Sick', 'Paid', 'Unpaid'];
+const LEAVE_TRIGGER_PATTERN =
+  /^\s*(apply\s+for\s+leave|apply\s+leave|request\s+leave|leave\s+request)\s*$/i;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const STATE_TTL_MS = 30 * 60 * 1000;
 
-const getStateKey = (employee: VerifiedEmployee) => employee.employeeId || employee.id;
-
-const isCancel = (text: string) => /^\s*(cancel|stop|no)\s*$/i.test(text);
+const isCancel = (text: string) => /^\s*(cancel|stop|exit|quit)\s*$/i.test(text);
 
 const isValidIsoDate = (value: string) => {
   if (!ISO_DATE_PATTERN.test(value)) return false;
@@ -35,123 +47,204 @@ const isValidIsoDate = (value: string) => {
 const isBefore = (left: string, right: string) =>
   new Date(`${left}T00:00:00.000Z`) < new Date(`${right}T00:00:00.000Z`);
 
-const getActiveState = (stateKey: string) => {
-  const state = leaveStates.get(stateKey);
+const getTodayIso = (now: Date) => {
+  const localMidnight = new Date(now);
+  localMidnight.setHours(0, 0, 0, 0);
 
-  if (!state) return null;
+  const year = localMidnight.getFullYear();
+  const month = String(localMidnight.getMonth() + 1).padStart(2, '0');
+  const day = String(localMidnight.getDate()).padStart(2, '0');
 
-  if (Date.now() - state.updatedAt > STATE_TTL_MS) {
-    leaveStates.delete(stateKey);
-    return null;
-  }
-
-  return state;
+  return `${year}-${month}-${day}`;
 };
 
-const saveState = (stateKey: string, state: LeaveState) => {
-  leaveStates.set(stateKey, { ...state, updatedAt: Date.now() });
+const getEmployeeReference = (employee: VerifiedEmployee) =>
+  employee.empId || employee.employeeId || employee.id;
+
+const normalizeLeaveType = (value: string): LeaveType | null => {
+  const trimmed = value.trim();
+
+  const numericChoice = Number.parseInt(trimmed, 10);
+  if (!Number.isNaN(numericChoice) && LEAVE_TYPES[numericChoice - 1]) {
+    return LEAVE_TYPES[numericChoice - 1];
+  }
+
+  return LEAVE_TYPES.find((leaveType) => leaveType.toLowerCase() === trimmed.toLowerCase()) ?? null;
 };
 
-export async function handleLeaveRequestFlow(
-  text: string,
-  employee: VerifiedEmployee,
-): Promise<string | null> {
-  const trimmedText = text.trim();
-  const stateKey = getStateKey(employee);
-  const existingState = getActiveState(stateKey);
+const leaveTypePrompt = () =>
+  [
+    "Sure. Let's create your leave request.",
+    'Reply with the leave type:',
+    '1. Casual',
+    '2. Sick',
+    '3. Paid',
+    '4. Unpaid',
+    'You can reply with the number or the name. Reply CANCEL anytime to stop.',
+  ].join('\n');
 
-  if (!existingState && !LEAVE_TRIGGER_PATTERN.test(trimmedText)) {
-    return null;
-  }
+const confirmPrompt = (state: LeaveState) =>
+  [
+    'Please confirm your leave request:',
+    `Employee ID: ${state.employeeId}`,
+    `Leave type: ${state.leaveType}`,
+    `From: ${state.fromDate}`,
+    `To: ${state.toDate}`,
+    `Reason: ${state.reason}`,
+    'Reply YES to submit or NO to cancel.',
+  ].join('\n');
 
-  if (!existingState) {
-    saveState(stateKey, {
-      step: 'AWAITING_LEAVE_DATES',
-      employeeId: employee.employeeId,
-      updatedAt: Date.now(),
-    });
+export function createLeaveRequestFlow({
+  submitLeave = applyLeave,
+  now = () => new Date(),
+}: LeaveFlowOptions = {}) {
+  const leaveStates = new Map<string, LeaveState>();
 
-    return 'Sure. Please enter the start date for your leave in YYYY-MM-DD format.';
-  }
+  const getActiveState = (stateKey: string) => {
+    const state = leaveStates.get(stateKey);
 
-  if (isCancel(trimmedText) && existingState.step !== 'AWAITING_LEAVE_CONFIRMATION') {
-    leaveStates.delete(stateKey);
-    return 'Leave request cancelled.';
-  }
+    if (!state) return null;
 
-  if (existingState.step === 'AWAITING_LEAVE_DATES') {
-    if (!isValidIsoDate(trimmedText)) {
-      return 'Please enter a valid start date in YYYY-MM-DD format.';
-    }
-
-    saveState(stateKey, {
-      ...existingState,
-      step: 'AWAITING_LEAVE_END_DATE',
-      fromDate: trimmedText,
-    });
-
-    return 'Got it. Please enter the end date in YYYY-MM-DD format.';
-  }
-
-  if (existingState.step === 'AWAITING_LEAVE_END_DATE') {
-    if (!isValidIsoDate(trimmedText)) {
-      return 'Please enter a valid end date in YYYY-MM-DD format.';
-    }
-
-    if (existingState.fromDate && isBefore(trimmedText, existingState.fromDate)) {
-      return 'End date cannot be before the start date. Please enter the end date again.';
-    }
-
-    saveState(stateKey, {
-      ...existingState,
-      step: 'AWAITING_LEAVE_REASON',
-      toDate: trimmedText,
-    });
-
-    return 'Thanks. What is the reason for your leave?';
-  }
-
-  if (existingState.step === 'AWAITING_LEAVE_REASON') {
-    if (trimmedText.length < 3) {
-      return 'Please enter a short reason for your leave.';
-    }
-
-    const nextState = {
-      ...existingState,
-      step: 'AWAITING_LEAVE_CONFIRMATION' as const,
-      reason: trimmedText,
-    };
-    saveState(stateKey, nextState);
-
-    return `Please confirm your leave: ${nextState.fromDate} to ${nextState.toDate} for ${nextState.reason}. Reply YES to confirm or NO to cancel.`;
-  }
-
-  if (existingState.step === 'AWAITING_LEAVE_CONFIRMATION') {
-    if (/^\s*no\s*$/i.test(trimmedText)) {
+    if (Date.now() - state.updatedAt > STATE_TTL_MS) {
       leaveStates.delete(stateKey);
+      return null;
+    }
+
+    return state;
+  };
+
+  const saveState = (stateKey: string, state: LeaveState) => {
+    leaveStates.set(stateKey, { ...state, updatedAt: Date.now() });
+  };
+
+  const clearState = (stateKey: string) => {
+    leaveStates.delete(stateKey);
+  };
+
+  return async function handleLeaveRequestFlow(
+    text: string,
+    employee: VerifiedEmployee,
+  ): Promise<string | null> {
+    const trimmedText = text.trim();
+    const stateKey = getEmployeeReference(employee);
+    const existingState = getActiveState(stateKey);
+
+    if (!existingState && !LEAVE_TRIGGER_PATTERN.test(trimmedText)) {
+      return null;
+    }
+
+    if (isCancel(trimmedText)) {
+      clearState(stateKey);
       return 'Leave request cancelled.';
     }
 
-    if (!/^\s*yes\s*$/i.test(trimmedText)) {
-      return 'Please reply YES to confirm or NO to cancel.';
+    if (!existingState) {
+      saveState(stateKey, {
+        step: 'AWAITING_LEAVE_TYPE',
+        employeeId: getEmployeeReference(employee),
+        updatedAt: Date.now(),
+      });
+
+      return leaveTypePrompt();
     }
 
-    const result = await applyLeave({
-      employeeId: existingState.employeeId,
-      fromDate: existingState.fromDate!,
-      toDate: existingState.toDate!,
-      reason: existingState.reason!,
-      leaveType: 'Casual',
-    });
+    if (existingState.step === 'AWAITING_LEAVE_TYPE') {
+      const leaveType = normalizeLeaveType(trimmedText);
 
-    leaveStates.delete(stateKey);
+      if (!leaveType) {
+        return 'Please choose a valid leave type: Casual, Sick, Paid, or Unpaid.';
+      }
 
-    if (!result.success) {
-      return `I could not apply your leave: ${result.error ?? 'Please try again later.'}`;
+      saveState(stateKey, {
+        ...existingState,
+        step: 'AWAITING_LEAVE_START_DATE',
+        leaveType,
+      });
+
+      return 'Got it. Please enter the start date in YYYY-MM-DD format.';
     }
 
-    return 'Your leave request has been submitted and is now pending approval.';
-  }
+    if (existingState.step === 'AWAITING_LEAVE_START_DATE') {
+      if (!isValidIsoDate(trimmedText)) {
+        return 'Please enter a valid start date in YYYY-MM-DD format.';
+      }
 
-  return null;
+      if (isBefore(trimmedText, getTodayIso(now()))) {
+        return 'Start date cannot be in the past. Please enter a current or future date.';
+      }
+
+      saveState(stateKey, {
+        ...existingState,
+        step: 'AWAITING_LEAVE_END_DATE',
+        fromDate: trimmedText,
+      });
+
+      return 'Thanks. Please enter the end date in YYYY-MM-DD format.';
+    }
+
+    if (existingState.step === 'AWAITING_LEAVE_END_DATE') {
+      if (!isValidIsoDate(trimmedText)) {
+        return 'Please enter a valid end date in YYYY-MM-DD format.';
+      }
+
+      if (existingState.fromDate && isBefore(trimmedText, existingState.fromDate)) {
+        return 'End date cannot be before the start date. Please enter the end date again.';
+      }
+
+      saveState(stateKey, {
+        ...existingState,
+        step: 'AWAITING_LEAVE_REASON',
+        toDate: trimmedText,
+      });
+
+      return 'Noted. Please share a short reason for your leave.';
+    }
+
+    if (existingState.step === 'AWAITING_LEAVE_REASON') {
+      if (trimmedText.length < 3) {
+        return 'Please enter a short reason with at least 3 characters.';
+      }
+
+      const nextState: LeaveState = {
+        ...existingState,
+        step: 'AWAITING_LEAVE_CONFIRMATION',
+        reason: trimmedText,
+      };
+      saveState(stateKey, nextState);
+
+      return confirmPrompt(nextState);
+    }
+
+    if (existingState.step === 'AWAITING_LEAVE_CONFIRMATION') {
+      if (/^\s*(no|n)\s*$/i.test(trimmedText)) {
+        clearState(stateKey);
+        return 'Leave request cancelled.';
+      }
+
+      if (!/^\s*(yes|y|confirm)\s*$/i.test(trimmedText)) {
+        return 'Please reply YES to submit or NO to cancel.';
+      }
+
+      const result = await submitLeave({
+        empId: existingState.employeeId,
+        employeeId: existingState.employeeId,
+        fromDate: existingState.fromDate!,
+        toDate: existingState.toDate!,
+        reason: existingState.reason!,
+        leaveType: existingState.leaveType!,
+      });
+
+      clearState(stateKey);
+
+      if (!result.success) {
+        return `I could not apply your leave: ${result.error ?? 'Please try again later.'}`;
+      }
+
+      return 'Your leave request has been submitted and is now pending approval in HRMS.';
+    }
+
+    return null;
+  };
 }
+
+export const handleLeaveRequestFlow = createLeaveRequestFlow();

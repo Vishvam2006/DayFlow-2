@@ -34,6 +34,37 @@ const leaveSchema = new mongoose.Schema(
       default: "Pending",
     },
 
+    decisionComment: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    notification: {
+      lastStatusNotified: {
+        type: String,
+        enum: ["Approved", "Rejected", null],
+        default: null,
+      },
+      lastAttemptedStatus: {
+        type: String,
+        enum: ["Approved", "Rejected", null],
+        default: null,
+      },
+      lastNotifiedAt: {
+        type: Date,
+        default: null,
+      },
+      lastAttemptedAt: {
+        type: Date,
+        default: null,
+      },
+      lastError: {
+        type: String,
+        default: "",
+      },
+    },
+
     appliedAt: {
       type: Date,
       default: Date.now,
