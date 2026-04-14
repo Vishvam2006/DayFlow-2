@@ -1,5 +1,6 @@
 import Leave from "../models/Leave.js";
 import { createLeaveRequest } from "../services/leaveService.js";
+import { updateLeaveStatusAndQueueNotification } from "../services/leaveNotificationService.js";
 
 const applyLeave = async (req, res) => {
   try {
@@ -79,7 +80,7 @@ const allLeaveRequests = async (req, res) => {
 
 const updateLeaveStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, decisionComment, reason } = req.body;
     const { id } = req.params;
 
     if (!["Approved", "Rejected"].includes(status)) {
@@ -89,14 +90,11 @@ const updateLeaveStatus = async (req, res) => {
       });
     }
 
-    const leave = await Leave.findByIdAndUpdate(id, { status }, { new: true });
-
-    if (!leave) {
-      return res.status(404).json({
-        success: false,
-        error: "Leave not found",
-      });
-    }
+    const leave = await updateLeaveStatusAndQueueNotification({
+      leaveId: id,
+      status,
+      decisionComment: decisionComment ?? reason ?? "",
+    });
 
     return res.status(200).json({
       success: true,

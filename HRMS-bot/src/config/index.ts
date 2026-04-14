@@ -6,6 +6,17 @@ function requireEnv(key: string): string {
   return val;
 }
 
+function requireAnyEnv(...keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) {
+      return value;
+    }
+  }
+
+  throw new Error(`Missing env var: ${keys.join(' or ')}`);
+}
+
 export const config = {
   OPENROUTER_API_KEY:   requireEnv('OPENROUTER_API_KEY'),
   OPENROUTER_BASE_URL:  process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
@@ -20,7 +31,10 @@ export const config = {
   SIMILARITY_THRESHOLD: parseFloat(process.env.SIMILARITY_THRESHOLD ?? '0.75'),
   PORT:                 parseInt(process.env.PORT ?? '3000'),
   HRMS_API_BASE_URL:    requireEnv('HRMS_API_BASE_URL'),
-  HRMS_BOT_SECRET_KEY:  requireEnv('HRMS_BOT_SECRET_KEY'),
+  HRMS_BOT_SECRET_KEY:  requireAnyEnv('HRMS_BOT_SECRET_KEY', 'BOT_SECRET_KEY'),
   HRMS_API_TIMEOUT_MS:  parseInt(process.env.HRMS_API_TIMEOUT_MS ?? '8000'),
   EMPLOYEE_VERIFY_CACHE_TTL_MS: parseInt(process.env.EMPLOYEE_VERIFY_CACHE_TTL_MS ?? '300000'),
+  LEAVE_NOTIFICATION_POLL_INTERVAL_MS: parseInt(
+    process.env.LEAVE_NOTIFICATION_POLL_INTERVAL_MS ?? '15000'
+  ),
 };

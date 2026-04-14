@@ -10,12 +10,32 @@ export const hrmsApi = axios.create({
   },
 });
 
+export function isRetryableHrmsError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  if (!error.response) {
+    return true;
+  }
+
+  return error.response.status >= 500;
+}
+
 export function getHrmsErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const serverError = error.response?.data?.error || error.response?.data?.message;
 
     if (serverError) {
       return String(serverError);
+    }
+
+    if (error.response?.status === 404) {
+      return 'The connected HRMS server does not have this bot endpoint available yet.';
+    }
+
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return 'The bot is not authorized to access the HRMS bot endpoint.';
     }
 
     if (error.code === 'ECONNABORTED') {

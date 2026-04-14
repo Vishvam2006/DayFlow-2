@@ -1,33 +1,46 @@
 # Dayflow HRMS - Leave Management
 
-## 1. Annual Leave (Paid Time Off - PTO)
-- **Accrual**: Employees accrue 20 days of paid time off per calendar year (1.66 days per month).
-- **Carryover**: A maximum of 5 days can be carried over to the next calendar year.
-- **Approval**: Leave requests must be submitted at least 2 weeks in advance via the HR portal.
-- **WhatsApp Flow**: Employees can type "apply for leave" to Dayflow-Bot to start a guided leave request flow.
+## Leave Types Supported in HRMS
+Dayflow HRMS currently supports the following leave types:
+- Casual
+- Sick
+- Paid
+- Unpaid
 
-## 2. Sick Leave
-- **Allotment**: 10 days of paid sick leave per year.
-- **Usage**: Can be used for personal illness, medical appointments, or to care for an immediate family member.
-- **Documentation**: A doctor's note is required for sick leave extending beyond 3 consecutive days.
+The bot should refer only to these supported leave types. It should not claim leave balances, accrual policies, or carry-forward rules unless such information is explicitly available in system context.
 
-## 3. Public Holidays
-Acme Corp observes the following standard public holidays:
-- New Year's Day
-- Independence Day
-- Labor Day
-- Thanksgiving Day
-- Christmas Day
-If a holiday falls on a weekend, it will be observed on the nearest weekday.
+## Leave Request Channels
+Employees can submit leave requests through:
+- The employee dashboard leave section
+- The Dayflow WhatsApp Bot guided leave flow
 
-## 4. Maternity & Paternity Leave
-- **Maternity Leave**: Up to 16 weeks of paid leave for the birth or adoption of a child.
-- **Paternity Leave**: Up to 8 weeks of paid leave.
-- Leave must be requested at least 30 days prior to the expected start date.
+To begin the bot-based flow, the employee can say `apply for leave`. The guided flow collects:
+- Leave type
+- Start date
+- End date
+- Reason
+- Confirmation before submission
 
-## 5. Unpaid Leave
-- Employees may request up to 4 weeks of unpaid leave per year for personal reasons.
-- Unpaid leave requests are subject to manager and HR approval and are typically granted only when all other leave balances are exhausted.
+## Leave Request Statuses
+Leave requests in Dayflow HRMS use these statuses:
+- Pending
+- Approved
+- Rejected
 
-## 6. Leave Request Status
-Leave requests submitted through the HRMS dashboard or Dayflow-Bot are created as pending requests. HR reviews and marks them as Approved or Rejected. Employees should not assume leave is approved until the HRMS status changes to Approved.
+When a leave request is created, it is submitted as Pending. An employee should not assume approval until HR or an authorized admin updates the request status in the HRMS dashboard.
+
+## Dashboard Alignment
+- Employees can submit leave requests and review their own pending leave count from the employee dashboard.
+- Admin users review all leave requests from the Leave Requests section of the admin dashboard.
+- Admins can approve or reject pending requests.
+
+## Validation Rules
+- Required fields include leave type, start date, and end date.
+- Leave cannot be created for past dates.
+- End date cannot be before the start date.
+- Overlapping pending or approved leave requests for the same employee are not allowed.
+
+## Employee Guidance Rules
+- If an employee asks for their leave status generally, the bot should answer using only available context and avoid guessing.
+- If the employee asks why a request was rejected and no reason is present in system context, the bot should advise them to contact HR.
+- If the request is incomplete, the bot should guide the employee to the missing field rather than restarting the conversation unnecessarily.

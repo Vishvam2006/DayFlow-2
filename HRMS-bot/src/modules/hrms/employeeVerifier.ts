@@ -1,9 +1,10 @@
 import { logger } from '../../utils/logger.js';
-import { hrmsApi } from './client.js';
+import { hrmsApi, isRetryableHrmsError } from './client.js';
 import { config } from '../../config/index.js';
 
 export type VerifiedEmployee = {
   id: string;
+  empId: string;
   employeeId: string;
   role: string;
   name: string;
@@ -60,11 +61,31 @@ export async function verifyEmployeeByPhoneNumber(
     return cachedEmployee;
   }
 
-  const response = await hrmsApi.post<VerifyEmployeeResponse>(
-    '/api/bot/verify-employee',
-    { phoneNumber },
-    { validateStatus: (status) => status === 404 || (status >= 200 && status < 300) },
-  );
+  const request = () =>
+    hrmsApi.post<VerifyEmployeeResponse>(
+      '/api/bot/verify-employee',
+      { phoneNumber },
+      { validateStatus: (status) => status === 404 || (status >= 200 && status < 300) },
+    );
+
+  let response;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      response = await request();
+      break;
+    } catch (error) {
+      if (!isRetryableHrmsError(error) || attempt === 2) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+
+  if (!response) {
+    throw new Error('Employee verification did not return a response.');
+  }
 
   if (response.status === 404) {
     return null;
@@ -76,19 +97,25 @@ export async function verifyEmployeeByPhoneNumber(
     return null;
   }
 
+  const employee: VerifiedEmployee = {
+    ...data.employee,
+    empId: data.employee.empId || data.employee.employeeId,
+    employeeId: data.employee.employeeId || data.employee.empId,
+  };
+
   employeeVerificationCache.set(phoneNumber, {
-    employee: data.employee,
+    employee,
     expiresAt: Date.now() + config.EMPLOYEE_VERIFY_CACHE_TTL_MS,
   });
 
   logger.info(
     {
       phoneNumber,
-      employeeId: data.employee.employeeId,
-      role: data.employee.role,
+      employeeId: employee.employeeId,
+      role: employee.role,
     },
     'Employee verified and cached',
   );
 
-  return data.employee;
+  return employee;
 }
