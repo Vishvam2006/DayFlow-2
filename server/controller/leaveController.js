@@ -62,12 +62,16 @@ const allLeaveRequests = async (req, res) => {
 
     const totalLeaves = await Leave.countDocuments();
     const pendingLeaves = await Leave.countDocuments({ status: "Pending" });
+    const approvedLeaves = await Leave.countDocuments({ status: "Approved" });
+    const rejectedLeaves = await Leave.countDocuments({ status: "Rejected" });
 
     return res.status(200).json({
       success: true,
       allLeaves,
       totalLeaves,
       pendingLeaves,
+      approvedLeaves,
+      rejectedLeaves,
     });
   } catch (error) {
     console.error("SHOW LEAVE ERROR:", error);
