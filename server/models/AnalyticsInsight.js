@@ -16,7 +16,7 @@ const analyticsInsightSchema = new mongoose.Schema(
 
     modelProvider: { type: String, default: "groq" },
     modelName: { type: String, default: "llama-3.1-8b-instant" },
-    promptVersion: { type: String, default: "v2-sliding-window" },
+    promptVersion: { type: String, default: "v1" },
 
     performance: {
       score: { type: Number, required: true, min: 0, max: 100 },

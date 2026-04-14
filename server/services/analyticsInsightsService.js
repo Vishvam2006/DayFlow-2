@@ -14,6 +14,16 @@ function clamp01(value) {
   return Math.min(Math.max(n, 0), 1);
 }
 
+function getCategory(p) {
+  const score = p.performance.score;
+  const risk = p.performance.risk_level;
+
+  if (score < 40 && risk === "High") return "CRITICAL";
+  if (score < 60) return "UNDERPERFORMING";
+  if (score > 75) return "HIGH_PERFORMER";
+  return "AVERAGE";
+}
+
 function clampScore(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -438,18 +448,23 @@ export async function computeAndCacheInsights({
     payloads.push(await buildEmployeeAnalyticsPayload(emp, periods));
   }
 
-  const enrichedForAi = payloads.map((p) => ({
-    name: p.employee.name,
-    department: p.employee.department,
-    jobTitle: p.employee.jobTitle,
-    performance_score: p.performance.score,
-    risk_score: p.performance.risk_score,
-    risk_level: p.performance.risk_level,
-    window: p.metrics.window,
-    baseline: p.metrics.baseline,
-    deltas: p.metrics.deltas,
-    series: p.metrics.series,
-  }));
+const enrichedForAi = payloads.map((p) => ({
+  name: p.employee.name,
+  department: p.employee.department,
+  jobTitle: p.employee.jobTitle,
+
+  performance_score: p.performance.score,
+  risk_score: p.performance.risk_score,
+  risk_level: p.performance.risk_level,
+
+  // ✅ ADD THIS LINE
+  category: getCategory(p),
+
+  window: p.metrics.window,
+  baseline: p.metrics.baseline,
+  deltas: p.metrics.deltas,
+  series: p.metrics.series,
+}));
 
   const allInsights = [];
   for (let i = 0; i < enrichedForAi.length; i += batchSize) {
@@ -474,7 +489,8 @@ export async function computeAndCacheInsights({
       periodEnd: periods.windowEnd,
       windowDays: periods.windowDays,
       baselineDays: periods.baselineDays,
-      promptVersion: "v2-sliding-window",
+      
+      promptVersion: "v1",
       performance: {
         score: p.performance.score,
         riskScore: p.performance.risk_score,
@@ -496,7 +512,7 @@ export async function computeAndCacheInsights({
         employee: p.employee._id,
         periodStart: periods.windowStart,
         periodEnd: periods.windowEnd,
-        promptVersion: "v2-sliding-window",
+        promptVersion: "v1",
       },
       { $set: doc },
       { upsert: true }

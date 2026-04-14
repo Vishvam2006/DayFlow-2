@@ -1,13 +1,19 @@
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 
-let groqClient = null;
+let client = null;
 
-function getGroqClient() {
-  if (groqClient) return groqClient;
-  const apiKey = process.env.GROQ_API_KEY;
+function getClient() {
+  if (client) return client;
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey || String(apiKey).trim() === "") return null;
-  groqClient = new Groq({ apiKey });
-  return groqClient;
+
+  client = new OpenAI({
+    apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+  });
+
+  return client;
 }
 
 function extractFirstJsonArray(text) {
@@ -50,27 +56,25 @@ function extractFirstJsonArray(text) {
 export async function generateInsightsBatch(employees) {
   if (!Array.isArray(employees) || employees.length === 0) return [];
 
-  const groq = getGroqClient();
-  if (!groq) {
-    console.warn("⚠️ GROQ_API_KEY missing; skipping AI insights generation.");
+  const openrouter = getClient();
+  if (!openrouter) {
+    console.warn(
+      "⚠️ OPENROUTER_API_KEY missing; skipping AI insights generation.",
+    );
     return [];
   }
 
   const prompt = `
 You are a predictive HR analyst and performance coach.
 
-CRITICAL OUTPUT RULES (MUST FOLLOW):
-- Output ONLY valid JSON
-- Output MUST be directly parseable by JSON.parse()
-- Use DOUBLE QUOTES for ALL keys and strings
-- Do NOT use single quotes
-- Do NOT add trailing commas
-- Do NOT add comments
-- Do NOT add explanation or text outside JSON
-- Do NOT wrap in Markdown code fences
+IMPORTANT:
+You MUST return ONLY valid JSON.
+Do NOT include any text before or after JSON.
+Do NOT use markdown or code blocks.
 
-STRUCTURE:
-Return a JSON array where each object has:
+OUTPUT FORMAT:
+Return a JSON array. Each item MUST follow:
+
 {
   "name": string,
   "insight": {
@@ -84,76 +88,111 @@ Return a JSON array where each object has:
   }
 }
 
+STRICT RULES:
+- JSON must be parseable by JSON.parse()
+- Use double quotes only
+- No trailing commas
+- No comments
+- No explanation text
+- Return ONLY the array
+
+DATA ENFORCEMENT RULES:
+- You MUST explicitly reference numeric values from the data in reasoning
+- You MUST use at least 2 specific metrics per employee (e.g., "attendance dropped by 12%", "completion rate is 0.42")
+- If two employees have different values, their insights MUST be different
+- DO NOT generate generic summaries
+
 CONTENT RULES:
-- Use ONLY provided data (30-day window vs 90-day baseline, performance & risk)
-- Do NOT invent facts that are not implied by the data.
-- Each employee MUST have unique reasoning
-- Avoid repetition across employees
+- Use ONLY the provided employee data
+- Do NOT invent facts
+- Each employee must have unique reasoning
 
-TREND RULES:
-- "trend_analysis" must be 1-2 sentences describing trajectory (improving/stable/declining) and citing the strongest deltas (attendance/completion/velocity).
-- If the baseline is near-zero or data is sparse, explicitly say the trend confidence is low.
+CATEGORY RULES:
 
-BURNOUT RULES:
-- "burnout_risk_indicator" must be Low/Medium/High using ONLY:
-  - Unusual attendance instability vs baseline (excluding approved leave days)
-  - Dropping task velocity and/or completion rate vs baseline
-- Do NOT classify High purely due to approved Sick leave. Prefer task/attendance instability signals.
+- CRITICAL:
+  Focus on fixing issues, strict monitoring, and intervention
 
-RECOMMENDATIONS RULES:
-- 3 to 5 recommendations per employee
-- Each must be actionable and specific
-- Must clearly mention WHO performs action (Manager or HR)
-- Prefer measurable or time-bound actions
+- UNDERPERFORMING:
+  Focus on coaching and improvement
 
-MANAGER ACTION ITEMS RULES:
-- Provide exactly 2 to 3 items in "manager_action_items"
-- Each item must be a specific manager action, phrased as an imperative, with a timebox when possible.
-- Avoid generic advice; tie each to the strongest signal (trend, attendance instability, or velocity change).
+- HIGH_PERFORMER:
+  Focus on growth, promotion, and recognition
 
-STRICTLY AVOID:
-- generic phrases
-- repeated wording
-- template copying
+- AVERAGE:
+  Focus on consistency
+
+TREND ANALYSIS:
+- MUST include at least one numeric delta (percentage or value)
+- MUST explain WHY the trend is improving/stable/declining using the numbers
+- Example: "Task completion dropped by 18% while attendance remained stable, indicating performance decline"
+
+UNIQUENESS CONSTRAINT:
+- Each employee insight MUST be clearly distinguishable from others
+- If two outputs look similar, REWRITE them to be different
+
+ANTI-TEMPLATE RULE:
+- If you generate similar wording across employees, you MUST rewrite it using different reasoning and structure
+
+BURNOUT:
+- Based ONLY on:
+  - attendance instability
+  - drop in task completion or velocity
+- Ignore approved leaves for high burnout
+
+RECOMMENDATIONS:
+- 3 to 5 items
+- Must mention WHO (Manager or HR)
+- Must be specific and actionable
+
+MANAGER ACTION ITEMS:
+- EXACTLY 2 or 3 items
+- Must be imperative (e.g., "Schedule...", "Review...")
+- Prefer time-bound actions
+
+FINAL CHECK:
+Before responding, ensure:
+- Output is valid JSON
+- No extra text
+- No markdown
 
 EMPLOYEES:
-${employees.map((e, i) =>
-  `Employee ${i + 1}:
-  Name: ${e.name}
-  Department: ${e.department}
-  Role: ${e.jobTitle}
-  Performance Score (0-100): ${Number(e.performance_score ?? 0)}
-  Risk Score (0-100): ${Number(e.risk_score ?? 0)}
-  Risk Level: ${e.risk_level}
+${employees
+  .map(
+    (e, i) => `
+Employee ${i + 1}:
+Name: ${e.name}
+Department: ${e.department}
+Role: ${e.jobTitle}
+Category: ${e.category}
 
-  30-Day Window Metrics:
-  - Attendance Rate (0-1): ${Number(e.window?.attendanceRate ?? 0).toFixed(3)}
-  - Attendance Denominator Days: ${Number(e.window?.attendanceDenominatorDays ?? 0)}
-  - Avg Work Hours (approx): ${Number(e.window?.avgWorkHours ?? 0).toFixed(2)}
-  - Tasks Assigned: ${Number(e.window?.tasksAssigned ?? 0)}
-  - Tasks Completed: ${Number(e.window?.tasksCompleted ?? 0)}
-  - Task Completion Rate (0-1): ${Number(e.window?.taskCompletionRate ?? 0).toFixed(3)}
-  - Task Velocity per Week: ${Number(e.window?.taskVelocityPerWeek ?? 0).toFixed(2)}
-  - Approved Leave Days: ${Number(e.window?.leaveDaysApproved ?? 0)}
-  - Excused (Sick) Leave Days: ${Number(e.window?.excusedLeaveDays ?? 0)}
-  - Non-Excused Leave Days: ${Number(e.window?.nonExcusedLeaveDays ?? 0)}
+Performance Score: ${Number(e.performance_score ?? 0)}
+Risk Score: ${Number(e.risk_score ?? 0)}
+Risk Level: ${e.risk_level}
 
-  90-Day Baseline Metrics (prior period):
-  - Attendance Rate (0-1): ${Number(e.baseline?.attendanceRate ?? 0).toFixed(3)}
-  - Task Completion Rate (0-1): ${Number(e.baseline?.taskCompletionRate ?? 0).toFixed(3)}
-  - Task Velocity per Week: ${Number(e.baseline?.taskVelocityPerWeek ?? 0).toFixed(2)}
+30-Day Metrics:
+Attendance Rate: ${Number(e.window?.attendanceRate ?? 0).toFixed(3)}
+Tasks Assigned: ${Number(e.window?.tasksAssigned ?? 0)}
+Tasks Completed: ${Number(e.window?.tasksCompleted ?? 0)}
+Completion Rate: ${Number(e.window?.taskCompletionRate ?? 0).toFixed(3)}
+Velocity/week: ${Number(e.window?.taskVelocityPerWeek ?? 0).toFixed(2)}
 
-  Deltas (window vs baseline):
-  - Attendance Rate Delta (%): ${(Number(e.deltas?.attendanceRate ?? 0) * 100).toFixed(1)}
-  - Task Completion Rate Delta (%): ${(Number(e.deltas?.taskCompletionRate ?? 0) * 100).toFixed(1)}
-  - Task Velocity Delta (%): ${(Number(e.deltas?.taskVelocityPerWeek ?? 0) * 100).toFixed(1)}
-`
-).join("\n\n")}
+Baseline (90-Day):
+Attendance Rate: ${Number(e.baseline?.attendanceRate ?? 0).toFixed(3)}
+Completion Rate: ${Number(e.baseline?.taskCompletionRate ?? 0).toFixed(3)}
+Velocity/week: ${Number(e.baseline?.taskVelocityPerWeek ?? 0).toFixed(2)}
+
+Deltas:
+Attendance Δ%: ${(Number(e.deltas?.attendanceRate ?? 0) * 100).toFixed(1)}
+Completion Δ%: ${(Number(e.deltas?.taskCompletionRate ?? 0) * 100).toFixed(1)}
+Velocity Δ%: ${(Number(e.deltas?.taskVelocityPerWeek ?? 0) * 100).toFixed(1)}
+`,
+  )
+  .join("\n")}
 `;
 
   try {
-    const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+    const response = await openrouter.chat.completions.create({
+      model: "openai/gpt-4o-mini",
       messages: [
         {
           role: "system",
@@ -162,7 +201,7 @@ ${employees.map((e, i) =>
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
+      temperature: 0.2,
     });
 
     const rawText = response.choices[0]?.message?.content;
