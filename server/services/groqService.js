@@ -76,6 +76,7 @@ OUTPUT FORMAT:
 Return a JSON array. Each item MUST follow:
 
 {
+  "employeeId": string,
   "name": string,
   "insight": {
     "summary": string,
@@ -88,78 +89,99 @@ Return a JSON array. Each item MUST follow:
   }
 }
 
-STRICT RULES:
-- JSON must be parseable by JSON.parse()
+STRICT JSON RULES:
+- Must be parseable by JSON.parse()
 - Use double quotes only
 - No trailing commas
 - No comments
 - No explanation text
 - Return ONLY the array
 
-DATA ENFORCEMENT RULES:
-- You MUST explicitly reference numeric values from the data in reasoning
-- You MUST use at least 2 specific metrics per employee (e.g., "attendance dropped by 12%", "completion rate is 0.42")
-- If two employees have different values, their insights MUST be different
-- DO NOT generate generic summaries
+🚨 CRITICAL DIFFERENTIATION RULE (HIGHEST PRIORITY):
+- EVERY employee MUST have COMPLETELY DIFFERENT output
+- If ANY two employees have different numeric values → outputs MUST differ significantly
+- You MUST NOT reuse:
+  - same sentences
+  - same recommendation patterns
+  - same phrasing structure
+- If outputs look similar → REWRITE them completely
+
+🚨 HARD ANTI-TEMPLATE RULE:
+- You are STRICTLY FORBIDDEN from generating generic or reusable templates
+- DO NOT repeat:
+  "review weekly blockers"
+  "monitor attendance"
+  "set goals"
+  or similar patterns across employees
+- Each employee must feel like a completely different case analysis
+
+🚨 NUMERIC GROUNDING RULE:
+- Each employee MUST reference at least 2–3 numeric values:
+  (attendance %, completion rate, velocity, deltas)
+- MUST explicitly include numbers in reasoning:
+  Example:
+  "attendance dropped by 18.5%"
+  "completion rate is 0.42 vs 0.71 baseline"
+
+🚨 OUTPUT DIVERSITY RULE:
+- Vary sentence structure across employees
+- Vary tone (analytical, risk-focused, growth-focused)
+- Vary recommendation style (short, tactical, strategic)
+- Avoid repeating same verbs or phrasing
 
 CONTENT RULES:
-- Use ONLY the provided employee data
+- Use ONLY provided data
 - Do NOT invent facts
 - Each employee must have unique reasoning
 
 CATEGORY RULES:
 
-- CRITICAL:
-  Focus on fixing issues, strict monitoring, and intervention
+CRITICAL:
+- Focus on urgent intervention, correction, performance recovery
 
-- UNDERPERFORMING:
-  Focus on coaching and improvement
+UNDERPERFORMING:
+- Focus on coaching, structured improvement, monitoring
 
-- HIGH_PERFORMER:
-  Focus on growth, promotion, and recognition
+HIGH_PERFORMER:
+- Focus on growth, leadership, retention, recognition
 
-- AVERAGE:
-  Focus on consistency
+AVERAGE:
+- Focus on consistency, optimization, incremental improvement
 
 TREND ANALYSIS:
-- MUST include at least one numeric delta (percentage or value)
-- MUST explain WHY the trend is improving/stable/declining using the numbers
-- Example: "Task completion dropped by 18% while attendance remained stable, indicating performance decline"
+- MUST include numeric delta
+- MUST explain WHY trend is improving/stable/declining
 
-UNIQUENESS CONSTRAINT:
-- Each employee insight MUST be clearly distinguishable from others
-- If two outputs look similar, REWRITE them to be different
-
-ANTI-TEMPLATE RULE:
-- If you generate similar wording across employees, you MUST rewrite it using different reasoning and structure
-
-BURNOUT:
+BURNOUT RULES:
 - Based ONLY on:
   - attendance instability
-  - drop in task completion or velocity
-- Ignore approved leaves for high burnout
+  - drop in completion or velocity
+- Ignore approved leave for burnout
 
 RECOMMENDATIONS:
 - 3 to 5 items
-- Must mention WHO (Manager or HR)
-- Must be specific and actionable
+- Must include WHO (Manager or HR)
+- Must be specific and DIFFERENT across employees
+- Avoid repeating recommendation patterns
 
 MANAGER ACTION ITEMS:
 - EXACTLY 2 or 3 items
-- Must be imperative (e.g., "Schedule...", "Review...")
-- Prefer time-bound actions
+- Must be imperative
+- Must be time-bound when possible
+- MUST differ across employees
 
-FINAL CHECK:
-Before responding, ensure:
-- Output is valid JSON
-- No extra text
-- No markdown
+🚨 FINAL VALIDATION BEFORE OUTPUT:
+- Ensure NO two employees have similar wording
+- Ensure each employee references different numbers
+- Ensure recommendations are NOT reused
+- If similarity exists → REWRITE
 
 EMPLOYEES:
 ${employees
   .map(
     (e, i) => `
 Employee ${i + 1}:
+Employee ID: ${e.employeeId}
 Name: ${e.name}
 Department: ${e.department}
 Role: ${e.jobTitle}
@@ -205,6 +227,7 @@ Velocity Δ%: ${(Number(e.deltas?.taskVelocityPerWeek ?? 0) * 100).toFixed(1)}
     });
 
     const rawText = response.choices[0]?.message?.content;
+    console.log("🔥 RAW AI RESPONSE:\n", rawText);
     if (!rawText) return [];
 
     const jsonText = extractFirstJsonArray(
@@ -213,9 +236,22 @@ Velocity Δ%: ${(Number(e.deltas?.taskVelocityPerWeek ?? 0) * 100).toFixed(1)}
         .replace(/```\s*/g, "")
         .trim(),
     );
-    if (!jsonText) return [];
+    if (!jsonText) {
+      console.log("❌ JSON extraction failed");
+      console.log(rawText);
+      return [];
+    }
 
-    const parsed = JSON.parse(jsonText);
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (e) {
+      console.log("❌ JSON PARSE ERROR:", e.message);
+      console.log(jsonText);
+      return [];
+    }
+    console.log("✅ PARSED AI OUTPUT:", parsed);
+
     return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
   } catch (err) {
     console.error("❌ Groq Error:", err.message);

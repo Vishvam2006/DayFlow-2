@@ -44,12 +44,6 @@ export const getAnalytics = async (req, res) => {
     const windowDays = Number(req.query.windowDays || 30);
     const baselineDays = Number(req.query.baselineDays || 90);
 
-    // 🚀 Trigger async (DON'T WAIT)
-    computeAndCacheInsights({
-      now: new Date(),
-      windowDays,
-      baselineDays,
-    }).catch(console.error);
 
     // ⚡ Return existing data immediately
     const docs = await AnalyticsInsight.find({
@@ -137,7 +131,7 @@ export const recomputeAnalyticsNow = async (req, res) => {
     const windowDays = Number(req.body?.windowDays || 30);
     const baselineDays = Number(req.body?.baselineDays || 90);
 
-    computeAndCacheInsights({
+    await computeAndCacheInsights({
       now: new Date(),
       windowDays,
       baselineDays,

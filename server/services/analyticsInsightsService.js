@@ -497,6 +497,7 @@ export async function computeAndCacheInsights({
   }
 
   const enrichedForAi = payloads.map((p) => ({
+    employeeId: p.employee._id.toString(),
     name: p.employee.name,
     department: p.employee.department,
     jobTitle: p.employee.jobTitle,
@@ -521,16 +522,19 @@ export async function computeAndCacheInsights({
     if (Array.isArray(batchInsights)) allInsights.push(...batchInsights);
   }
 
-  const insightsByName = new Map();
+  const insightsById = new Map();
   for (const item of allInsights) {
-    if (item?.name) insightsByName.set(item.name, item.insight);
+    if (item?.employeeId) {
+      insightsById.set(item.employeeId, item.insight);
+    }
   }
+  
 
   const expiresAt = addDaysUtc(periods.windowEnd, ttlDays);
 
   let computed = 0;
   for (const p of payloads) {
-    const aiInsight = insightsByName.get(p.employee.name);
+    const aiInsight = insightsById.get(p.employee._id.toString());
 
     if (!aiInsight) {
       console.log("⚠️ AI failed, keeping previous insight:", p.employee.name);
