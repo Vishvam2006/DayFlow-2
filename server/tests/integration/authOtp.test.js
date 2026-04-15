@@ -90,4 +90,25 @@ describe("OTP Login Integration Tests", () => {
 
     expect(deleted).toBeNull();
   });
+
+  test("returns the underlying email error when OTP delivery fails", async () => {
+    const hashedPassword = await bcrypt.hash("password123", 10);
+    await User.create({
+      name: "Meera Rao",
+      email: "meera@example.com",
+      phoneNumber: "+919400000012",
+      password: hashedPassword,
+      role: "employee",
+    });
+
+    sendOTP.mockRejectedValueOnce(new Error("Missing RESEND_API_KEY."));
+
+    const response = await request(app)
+      .post("/api/auth/login/send-otp")
+      .send({ email: "meera@example.com" });
+
+    expect(response.status).toBe(500);
+    expect(response.body.error).toBe("Missing RESEND_API_KEY.");
+    expect(response.body.message).toBe("Missing RESEND_API_KEY.");
+  });
 });

@@ -1,12 +1,36 @@
-import OpenAI from "openai";
-
 let client = null;
+let openAIConstructorPromise = null;
 
-function getClient() {
+async function loadOpenAIConstructor() {
+  if (!openAIConstructorPromise) {
+    openAIConstructorPromise = import("openai")
+      .then((module) => module.default)
+      .catch((error) => {
+        if (
+          error?.code === "ERR_MODULE_NOT_FOUND" ||
+          error?.message?.includes("Cannot find package 'openai'")
+        ) {
+          console.warn(
+            "⚠️ openai package is not installed; skipping AI insights generation.",
+          );
+          return null;
+        }
+
+        throw error;
+      });
+  }
+
+  return openAIConstructorPromise;
+}
+
+async function getClient() {
   if (client) return client;
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey || String(apiKey).trim() === "") return null;
+
+  const OpenAI = await loadOpenAIConstructor();
+  if (!OpenAI) return null;
 
   client = new OpenAI({
     apiKey,
@@ -56,10 +80,10 @@ function extractFirstJsonArray(text) {
 export async function generateInsightsBatch(employees) {
   if (!Array.isArray(employees) || employees.length === 0) return [];
 
-  const openrouter = getClient();
+  const openrouter = await getClient();
   if (!openrouter) {
     console.warn(
-      "⚠️ OPENROUTER_API_KEY missing; skipping AI insights generation.",
+      "⚠️ AI insights client unavailable; skipping AI insights generation.",
     );
     return [];
   }
@@ -254,7 +278,7 @@ Velocity Δ%: ${(Number(e.deltas?.taskVelocityPerWeek ?? 0) * 100).toFixed(1)}
 
     return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
   } catch (err) {
-    console.error("❌ Groq Error:", err.message);
+    console.error("❌ OpenRouter Error:", err.message);
     return [];
   }
 }

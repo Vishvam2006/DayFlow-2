@@ -4,6 +4,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const connectToDatabase = async () => {
+  if (!process.env.MONGODB_URL?.trim()) {
+    throw new Error("Missing MONGODB_URL.");
+  }
+
   const maskedUrl = process.env.MONGODB_URL
     ? process.env.MONGODB_URL.replace(/:([^@]+)@/, ":****@")
     : "undefined";
@@ -25,6 +29,8 @@ const connectToDatabase = async () => {
     } else if (error.message.includes("ETIMEDOUT") || error.message.includes("connection timed out")) {
       console.error("⏳ Connection timed out. Please check your IP whitelist in MongoDB Atlas.");
     }
+
+    throw error;
   }
 };
 
