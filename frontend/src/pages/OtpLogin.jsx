@@ -26,7 +26,11 @@ const OtpLogin = () => {
       setMessage(response.data.message || "OTP sent successfully.");
       navigate("/login/otp/verify", { state: { email } });
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to send OTP right now.");
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Unable to send OTP right now.",
+      );
     } finally {
       setLoading(false);
     }

@@ -142,7 +142,11 @@ const Login = () => {
       if (loginMode === "password") {
         setError(err.response?.data?.error || "Server error. Please try again.");
       } else {
-        setError(err.response?.data?.message || "Unable to send OTP right now.");
+        setError(
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Unable to send OTP right now.",
+        );
       }
     } finally {
       if (loginMode === "password") {

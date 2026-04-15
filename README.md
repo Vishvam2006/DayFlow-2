@@ -495,8 +495,13 @@ Review them before running in any shared environment.
 | `MONGODB_URL` | Yes | MongoDB connection string |
 | `JWT_KEY` | Yes | JWT signing secret |
 | `CORS_ORIGINS` | No | Extra comma-separated allowed origins |
-| `BREVO_API_KEY` | For OTP/email | Email delivery key |
-| `SENDER_EMAIL` | For OTP/email | Sender address |
+| `RESEND_API_KEY` | For OTP/email | Resend API key |
+| `EMAIL_FROM` | For OTP/email | Verified sender address, for example `DayFlow <noreply@yourdomain.com>` |
+| `EMAIL_REPLY_TO` | No | Optional reply-to address |
+| `EMAIL_APP_NAME` | No | Email branding name, defaults to `DayFlow HRMS` |
+| `APP_URL` | No | Base app URL used in email templates |
+| `EMPLOYEE_DASHBOARD_URL` | No | Deep link used in leave emails |
+| `EMPLOYEE_TASKS_URL` | No | Deep link used in task assignment emails |
 | `CLOUDINARY_CLOUD_NAME` | For profile uploads | Cloudinary config |
 | `CLOUDINARY_API_KEY` | For profile uploads | Cloudinary config |
 | `CLOUDINARY_API_SECRET` | For profile uploads | Cloudinary config |

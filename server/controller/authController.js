@@ -38,7 +38,10 @@ const sendOtpLogin = async (req, res) => {
 
     return res.json({ message: "If the account exists, an OTP was sent." });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+      message: error.message,
+    });
   }
 };
 

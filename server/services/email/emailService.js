@@ -45,6 +45,33 @@ function getEmailConfig() {
   };
 }
 
+export function getEmailEnvIssues() {
+  const issues = [];
+
+  if (!process.env.RESEND_API_KEY?.trim()) {
+    issues.push("Missing RESEND_API_KEY");
+  }
+
+  if (!process.env.EMAIL_FROM?.trim()) {
+    issues.push("Missing EMAIL_FROM");
+  }
+
+  return issues;
+}
+
+export function warnIfEmailEnvInvalid() {
+  const issues = getEmailEnvIssues();
+
+  if (issues.length === 0) {
+    return;
+  }
+
+  console.warn(
+    `[email] Email delivery is not fully configured: ${issues.join(", ")}. ` +
+      "OTP, task, and leave emails will fail until these env vars are set.",
+  );
+}
+
 function logEmail(level, message, meta = {}) {
   const logger = level === "error" ? console.error : console.info;
   logger(`[email] ${message}`, meta);

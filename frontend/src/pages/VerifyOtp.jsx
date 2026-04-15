@@ -66,7 +66,11 @@ const VerifyOtp = () => {
 
       setMessage(response.data.message || "OTP sent successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to resend OTP.");
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Unable to resend OTP.",
+      );
     } finally {
       setResending(false);
     }
