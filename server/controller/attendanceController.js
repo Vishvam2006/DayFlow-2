@@ -3,12 +3,14 @@ import { extractClientIPv4 } from "../middleware/clientIpMiddleware.js";
 import {
   checkInEmployee,
   checkOutEmployee,
+  getAttendanceLogsForEmployee,
   getTodayAttendanceForEmployee,
   getYearAttendanceForEmployee,
   serializeAttendanceRecord,
 } from "../services/attendanceService.js";
 import { verifyIpAgainstCompanyNetwork } from "../services/networkSecurityService.js";
 import { sendError, sendSuccess } from "../utils/httpResponse.js";
+import { buildPaginationMeta, parsePagination } from "../utils/pagination.js";
 
 const checkIn = async (req, res) => {
   try {
@@ -117,6 +119,40 @@ const getYearAttendance = async (req, res) => {
   }
 };
 
+const getAttendanceLogs = async (req, res) => {
+  try {
+    if (!req.user?._id) {
+      return sendError(res, 401, "Unauthorized request.");
+    }
+
+    const { page, limit } = parsePagination(req.query, {
+      defaultLimit: 8,
+      maxLimit: 50,
+    });
+    const result = await getAttendanceLogsForEmployee({
+      employeeId: req.user._id,
+      page,
+      limit,
+    });
+    const pagination = buildPaginationMeta({
+      page,
+      limit,
+      totalItems: result.totalItems,
+    });
+
+    return sendSuccess(res, 200, {
+      records: result.records,
+      ...pagination,
+    });
+  } catch (error) {
+    return sendError(
+      res,
+      error.statusCode || 500,
+      error.message || "Error fetching attendance logs."
+    );
+  }
+};
+
 const verifyClockInNetwork = async (req, res) => {
   try {
     const deviceIP = req.clientIP || extractClientIPv4(req);
@@ -148,16 +184,27 @@ const verifyClockInNetwork = async (req, res) => {
 
 const getFlaggedAttendance = async (req, res) => {
   try {
-    const records = await Attendance.find({ isFlagged: true })
-      .populate("employee", "name email employeeId department")
-      .sort({ createdAt: -1 })
-      .limit(100);
+    const { page, limit, skip } = parsePagination(req.query, {
+      defaultLimit: 8,
+      maxLimit: 100,
+    });
+
+    const [records, totalItems] = await Promise.all([
+      Attendance.find({ isFlagged: true })
+        .populate("employee", "name email employeeId department")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Attendance.countDocuments({ isFlagged: true }),
+    ]);
+    const pagination = buildPaginationMeta({ page, limit, totalItems });
 
     return sendSuccess(res, 200, {
       records: records.map((record) => ({
         ...serializeAttendanceRecord(record),
         employee: record.employee,
       })),
+      ...pagination,
     });
   } catch (error) {
     return sendError(res, 500, "Failed to fetch flagged attendance records.");
@@ -168,6 +215,7 @@ export {
   checkIn,
   checkOut,
   getAttendance,
+  getAttendanceLogs,
   getYearAttendance,
   verifyClockInNetwork,
   getFlaggedAttendance,

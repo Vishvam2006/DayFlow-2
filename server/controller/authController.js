@@ -2,17 +2,9 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
-import crypto from "crypto";
-
-import otpGenerator from "otp-generator";
-import { sendOTP } from "../utils/mailer.js";
+import { createAndSendLoginOtp, verifyLoginOtp } from "../services/otpService.js";
 
 dotenv.config();
-
-const OTP_TTL_MS = 5 * 60 * 1000;
-const OTP_COOLDOWN_MS = 60 * 1000; // throttle OTP sends per email
-const OTP_MAX_ATTEMPTS = 5;
-const otpStore = new Map(); // key=email, value={ otpHash, expires, attempts, lastSentAt }
 
 const buildAuthUser = (user) => ({
   _id: user._id,
@@ -26,14 +18,6 @@ const buildAuthUser = (user) => ({
   bio: user.bio || "",
   profileImage: user.profileImage || "",
 });
-
-const hashOtp = (email, otp) => {
-  // bind OTP to email so same OTP across users can't be replayed
-  return crypto
-    .createHash("sha256")
-    .update(`${email}:${String(otp)}`)
-    .digest("hex");
-};
 
 const sendOtpLogin = async (req, res) => {
   try {
@@ -50,29 +34,7 @@ const sendOtpLogin = async (req, res) => {
       return res.json({ message: "If the account exists, an OTP was sent." });
     }
 
-    const existingRecord = otpStore.get(email);
-    if (
-      existingRecord?.lastSentAt &&
-      Date.now() - existingRecord.lastSentAt < OTP_COOLDOWN_MS
-    ) {
-      return res.json({ message: "If the account exists, an OTP was sent." });
-    }
-
-    const otp = otpGenerator.generate(6, {
-      digits: true,
-      lowerCaseAlphabets: false,
-      upperCaseAlphabets: false,
-      specialChars: false,
-    });
-
-    otpStore.set(email, {
-      otpHash: hashOtp(email, otp),
-      expires: Date.now() + OTP_TTL_MS,
-      attempts: 0,
-      lastSentAt: Date.now(),
-    });
-
-    await sendOTP(email, otp);
+    await createAndSendLoginOtp(email);
 
     return res.json({ message: "If the account exists, an OTP was sent." });
   } catch (error) {
@@ -89,30 +51,10 @@ const verifyOtpLogin = async (req, res) => {
       return res.status(400).json({ message: "Email and OTP are required" });
     }
 
-    const record = otpStore.get(email);
-
-    if (!record) {
-      return res.status(400).json({ message: "No OTP found" });
+    const verification = await verifyLoginOtp(email, otp);
+    if (!verification.ok) {
+      return res.status(verification.statusCode).json({ message: verification.message });
     }
-
-    if (record.attempts >= OTP_MAX_ATTEMPTS) {
-      otpStore.delete(email);
-      return res.status(429).json({ message: "Too many attempts. Try again." });
-    }
-
-    if (Date.now() > record.expires) {
-      otpStore.delete(email);
-      return res.status(400).json({ message: "OTP expired" });
-    }
-
-    record.attempts += 1;
-    otpStore.set(email, record);
-
-    if (record.otpHash !== hashOtp(email, otp)) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    otpStore.delete(email);
 
     const user = await User.findOne({ email });
     if (!user) {

@@ -6,6 +6,7 @@ import {
     checkIn,
     checkOut,
     getAttendance,
+    getAttendanceLogs,
     getFlaggedAttendance,
     getYearAttendance,
     verifyClockInNetwork,
@@ -16,6 +17,7 @@ const router = express.Router();
 router.post("/check-in", authMiddleware, attachClientIp, checkIn);
 router.post("/check-out", authMiddleware, checkOut);
 router.get("/today", authMiddleware, getAttendance);
+router.get("/logs", authMiddleware, getAttendanceLogs);
 router.get("/year", authMiddleware, getYearAttendance);
 router.get("/network-status", authMiddleware, attachClientIp, verifyClockInNetwork);
 router.get("/flagged", authMiddleware, adminMiddleware, getFlaggedAttendance);

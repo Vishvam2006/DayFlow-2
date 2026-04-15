@@ -225,6 +225,30 @@ export async function getYearAttendanceForEmployee({ employeeId, year }) {
   });
 }
 
+export async function getAttendanceLogsForEmployee({
+  employeeId,
+  page = 1,
+  limit = 8,
+}) {
+  if (!employeeId) {
+    throw createError("Employee ID is required.", 400);
+  }
+
+  const skip = (page - 1) * limit;
+  const [records, totalItems] = await Promise.all([
+    Attendance.find({ employee: employeeId })
+      .sort({ date: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Attendance.countDocuments({ employee: employeeId }),
+  ]);
+
+  return {
+    records: records.map(serializeAttendanceRecord),
+    totalItems,
+  };
+}
+
 export async function getMonthlyAttendanceSummaryForEmployee({ employeeId, month }) {
   if (!employeeId) {
     throw createError("Employee ID is required.", 400);

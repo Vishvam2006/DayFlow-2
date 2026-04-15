@@ -2,6 +2,7 @@ import User, { E164_PHONE_NUMBER_REGEX } from "../models/User.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { normalizeSalaryStructure } from "../utils/payroll.js";
+import { buildPaginationMeta, escapeRegex, parsePagination } from "../utils/pagination.js";
 
 // Helper: generate a secure random password
 const generatePassword = () => {
@@ -24,13 +25,44 @@ const normalizePhoneNumber = (phoneNumber) =>
 // GET /api/employee/get  — admin sees all employees
 const getEmployees = async (req, res) => {
   try {
-    const employees = await User.find({ role: "employee" }).select(
-      "name email phoneNumber jobTitle department employeeId profileImage createdAt salaryStructure"
-    );
+    const { page, limit, skip } = parsePagination(req.query, {
+      defaultLimit: 10,
+      maxLimit: 200,
+    });
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const searchQuery = q
+      ? {
+          $or: [
+            { name: { $regex: escapeRegex(q), $options: "i" } },
+            { email: { $regex: escapeRegex(q), $options: "i" } },
+            { department: { $regex: escapeRegex(q), $options: "i" } },
+            { jobTitle: { $regex: escapeRegex(q), $options: "i" } },
+            { employeeId: { $regex: escapeRegex(q), $options: "i" } },
+          ],
+        }
+      : {};
+    const filter = { role: "employee", ...searchQuery };
+
+    const [employees, totalItems] = await Promise.all([
+      User.find(filter)
+        .select(
+          "name email phoneNumber jobTitle department employeeId profileImage createdAt salaryStructure"
+        )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter),
+    ]);
+    const pagination = buildPaginationMeta({ page, limit, totalItems });
+
     return res.status(200).json({
       success: true,
-      employeesCount: employees.length,
+      employeesCount: pagination.totalItems,
       employees,
+      ...pagination,
+      filters: {
+        q,
+      },
     });
   } catch (error) {
     return res

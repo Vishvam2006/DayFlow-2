@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   UserPlus,
   Mail,
+  Phone,
   Briefcase,
   Building2,
   Copy,
@@ -215,6 +216,34 @@ const CredentialsModal = ({ credentials, onClose }) => {
           </div>
         </div>
 
+        {/* Phone */}
+        <div style={{ marginBottom: "16px" }}>
+          <p style={labelStyle}>Phone Number</p>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "#f8fafc",
+              border: "1.5px solid #e2e8f0",
+              borderRadius: "9px",
+              padding: "10px 14px",
+            }}
+          >
+            <Phone size={15} color="#0f766e" style={{ flexShrink: 0 }} />
+            <span
+              style={{
+                flex: 1,
+                fontSize: "14px",
+                color: "#0f172a",
+                fontFamily: "monospace",
+              }}
+            >
+              {credentials.phoneNumber}
+            </span>
+          </div>
+        </div>
+
         {/* Password */}
         <div style={{ marginBottom: "28px" }}>
           <p style={labelStyle}>Generated Password</p>
@@ -308,6 +337,7 @@ const AddEmployee = ({ onSuccess }) => {
   const [form, setForm] = useState({
     name: "",
     email: "",
+    phoneNumber: "",
     jobTitle: "",
     department: "",
     salaryStructure: {
@@ -335,8 +365,13 @@ const AddEmployee = ({ onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.name.trim() || !form.email.trim()) {
-      setError("Full name and email are required.");
+    if (!form.name.trim() || !form.email.trim() || !form.phoneNumber.trim()) {
+      setError("Full name, email, and phone number are required.");
+      return;
+    }
+
+    if (!/^\+[1-9]\d{1,14}$/.test(form.phoneNumber.trim())) {
+      setError("Phone number must be in E.164 format, for example +919876543210.");
       return;
     }
 
@@ -357,6 +392,7 @@ const AddEmployee = ({ onSuccess }) => {
       setForm({
         name: "",
         email: "",
+        phoneNumber: "",
         jobTitle: "",
         department: "",
         salaryStructure: {
@@ -503,7 +539,7 @@ const AddEmployee = ({ onSuccess }) => {
             </div>
 
             {/* Email */}
-            <div style={{ gridColumn: "1 / -1" }}>
+            <div>
               <label style={labelStyle}>
                 <span style={{ color: "#e11d48" }}>*</span> Work Email
               </label>
@@ -549,6 +585,58 @@ const AddEmployee = ({ onSuccess }) => {
                   }}
                 />
               </div>
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label style={labelStyle}>
+                <span style={{ color: "#e11d48" }}>*</span> Phone Number
+              </label>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  background: "#f8fafc",
+                  border: "1.5px solid #e2e8f0",
+                  borderRadius: "10px",
+                  padding: "0 12px",
+                  transition: "all 0.15s",
+                }}
+                onFocus={(e) =>
+                  (e.currentTarget.style.border = "1.5px solid #4f46e5")
+                }
+                onBlur={(e) =>
+                  (e.currentTarget.style.border = "1.5px solid #e2e8f0")
+                }
+              >
+                <Phone size={15} color="#0f766e" style={{ flexShrink: 0 }} />
+
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  name="phoneNumber"
+                  value={form.phoneNumber}
+                  onChange={handleChange}
+                  required
+                  placeholder="+919876543210"
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    padding: "10px 8px",
+                    fontSize: "14px",
+                    flex: 1,
+                    color: "#0f172a",
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                />
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: "12px", color: "#64748b" }}>
+                Enter in E.164 format, for example <strong>+919876543210</strong>.
+              </p>
             </div>
 
             {/* Job Title */}
