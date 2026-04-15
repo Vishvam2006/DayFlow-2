@@ -14,6 +14,16 @@ function clamp01(value) {
   return Math.min(Math.max(n, 0), 1);
 }
 
+function getCategory(p) {
+  const score = p.performance.score;
+  const risk = p.performance.risk_level;
+
+  if (score < 40 && risk === "High") return "CRITICAL";
+  if (score < 60) return "UNDERPERFORMING";
+  if (score > 75) return "HIGH_PERFORMER";
+  return "AVERAGE";
+}
+
 function clampScore(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -30,7 +40,9 @@ function toYmdUtc(date) {
 
 function startOfDayUtc(date) {
   const d = new Date(date);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
 }
 
 function addDaysUtc(date, days) {
@@ -133,7 +145,9 @@ function computePeriodMetrics({
 
   for (const l of approvedLeaves) {
     const type = l.leaveType || "Unknown";
-    leaveCountsByType[type] = (leaveCountsByType[type] || 0) + inclusiveDaysBetweenUtc(l.fromDate, l.toDate);
+    leaveCountsByType[type] =
+      (leaveCountsByType[type] || 0) +
+      inclusiveDaysBetweenUtc(l.fromDate, l.toDate);
     for (const ymd of expandLeaveDatesUtc(l)) {
       leaveDatesAll.add(ymd);
       if (EXCUSED_LEAVE_TYPES.has(type)) leaveDatesExcused.add(ymd);
@@ -171,21 +185,34 @@ function computePeriodMetrics({
   const avgWorkHours = safeRatio(workHoursSum, attendanceDenominatorDays) * 8; // normalize ~0-8h scale
 
   // Tasks: use createdAt for assignments and updatedAt for completion time.
-  const assignedInPeriod = tasks.filter((t) => t.createdAt >= windowStart && t.createdAt <= windowEnd);
+  const assignedInPeriod = tasks.filter(
+    (t) => t.createdAt >= windowStart && t.createdAt <= windowEnd,
+  );
   const completedInPeriod = tasks.filter(
-    (t) => t.status === "Completed" && t.updatedAt >= windowStart && t.updatedAt <= windowEnd
+    (t) =>
+      t.status === "Completed" &&
+      t.updatedAt >= windowStart &&
+      t.updatedAt <= windowEnd,
   );
 
-  const completionRate = safeRatio(completedInPeriod.length, assignedInPeriod.length);
-  const velocityPerWeek = (completedInPeriod.length / Math.max(1, datesUtc.length / 7));
+  const completionRate = safeRatio(
+    completedInPeriod.length,
+    assignedInPeriod.length,
+  );
+  const velocityPerWeek =
+    completedInPeriod.length / Math.max(1, datesUtc.length / 7);
 
   // Break 30 days into 4-ish weeks for series compression
   const weeks = [];
   for (let i = 0; i < datesUtc.length; i += 7) {
     const wStart = datesUtc[i];
     const wEnd = datesUtc[Math.min(i + 6, datesUtc.length - 1)];
-    const completed = completedInPeriod.filter((t) => t.updatedAt >= wStart && t.updatedAt <= wEnd).length;
-    const assigned = assignedInPeriod.filter((t) => t.createdAt >= wStart && t.createdAt <= wEnd).length;
+    const completed = completedInPeriod.filter(
+      (t) => t.updatedAt >= wStart && t.updatedAt <= wEnd,
+    ).length;
+    const assigned = assignedInPeriod.filter(
+      (t) => t.createdAt >= wStart && t.createdAt <= wEnd,
+    ).length;
     weeks.push({
       start: toYmdUtc(wStart),
       end: toYmdUtc(wEnd),
@@ -231,7 +258,10 @@ function computePerformanceAndRisk({ window, baseline, deltas }) {
   const completionAbs = clamp01(window.taskCompletionRate);
 
   // Mild penalty for high non-excused leave usage in the window (e.g., repeated casual/unpaid)
-  const leavePenalty = clamp01(window.nonExcusedLeaveDays / Math.max(1, window.attendanceDenominatorDays + window.leaveDaysApproved));
+  const leavePenalty = clamp01(
+    window.nonExcusedLeaveDays /
+      Math.max(1, window.attendanceDenominatorDays + window.leaveDaysApproved),
+  );
 
   const performance =
     100 *
@@ -239,7 +269,7 @@ function computePerformanceAndRisk({ window, baseline, deltas }) {
       0.25 * completionAbs +
       0.15 * attendanceTrend +
       0.15 * velocityTrend +
-      0.10 * completionTrend);
+      0.1 * completionTrend);
 
   const performanceScore = clampScore(performance - 10 * leavePenalty);
 
@@ -259,36 +289,52 @@ function computePerformanceAndRisk({ window, baseline, deltas }) {
 }
 
 function buildFallbackInsight(payload) {
-  const attendanceDeltaPct = (Number(payload.metrics?.deltas?.attendanceRate || 0) * 100).toFixed(1);
-  const completionDeltaPct = (Number(payload.metrics?.deltas?.taskCompletionRate || 0) * 100).toFixed(1);
-  const velocityDeltaPct = (Number(payload.metrics?.deltas?.taskVelocityPerWeek || 0) * 100).toFixed(1);
+  const attendanceDeltaPct = (
+    Number(payload.metrics?.deltas?.attendanceRate || 0) * 100
+  ).toFixed(1);
+  const completionDeltaPct = (
+    Number(payload.metrics?.deltas?.taskCompletionRate || 0) * 100
+  ).toFixed(1);
+  const velocityDeltaPct = (
+    Number(payload.metrics?.deltas?.taskVelocityPerWeek || 0) * 100
+  ).toFixed(1);
 
   const score = Number(payload.performance?.score || 0);
   const risk = Number(payload.performance?.risk_score || 0);
   const attendance = Number(payload.metrics?.window?.attendanceRate || 0);
   const completion = Number(payload.metrics?.window?.taskCompletionRate || 0);
-  const nonExcusedLeaves = Number(payload.metrics?.window?.nonExcusedLeaveDays || 0);
+  const nonExcusedLeaves = Number(
+    payload.metrics?.window?.nonExcusedLeaveDays || 0,
+  );
 
   const trajectory =
-    score >= 75
-      ? "improving"
-      : score >= 50
-        ? "stable"
-        : "declining";
+    score >= 75 ? "improving" : score >= 50 ? "stable" : "declining";
 
   const burnoutRisk =
-    risk >= 70 || (Number(velocityDeltaPct) < -25 && Number(attendanceDeltaPct) < -10)
+    risk >= 70 ||
+    (Number(velocityDeltaPct) < -25 && Number(attendanceDeltaPct) < -10)
       ? "High"
       : risk >= 40 || Number(velocityDeltaPct) < -10
         ? "Medium"
         : "Low";
 
   const issues = [];
-  if (attendance < 0.75) issues.push("Attendance consistency is below target in the current 30-day window.");
-  if (completion < 0.6) issues.push("Task completion throughput is lower than expected.");
-  if (Number(velocityDeltaPct) < -15) issues.push("Task velocity is trending downward versus the 90-day baseline.");
-  if (nonExcusedLeaves > 2) issues.push("Non-excused leave usage is elevated this month.");
-  if (issues.length === 0) issues.push("No critical risk signals detected across attendance and delivery metrics.");
+  if (attendance < 0.75)
+    issues.push(
+      "Attendance consistency is below target in the current 30-day window.",
+    );
+  if (completion < 0.6)
+    issues.push("Task completion throughput is lower than expected.");
+  if (Number(velocityDeltaPct) < -15)
+    issues.push(
+      "Task velocity is trending downward versus the 90-day baseline.",
+    );
+  if (nonExcusedLeaves > 2)
+    issues.push("Non-excused leave usage is elevated this month.");
+  if (issues.length === 0)
+    issues.push(
+      "No critical risk signals detected across attendance and delivery metrics.",
+    );
 
   return {
     summary: `Current performance score is ${score} with ${payload.performance?.risk_level} risk. The employee trajectory appears ${trajectory} across recent attendance and execution trends.`,
@@ -312,7 +358,11 @@ function buildFallbackInsight(payload) {
   };
 }
 
-export function computeAnalyticsPeriods({ now = new Date(), windowDays = 30, baselineDays = 90 } = {}) {
+export function computeAnalyticsPeriods({
+  now = new Date(),
+  windowDays = 30,
+  baselineDays = 90,
+} = {}) {
   const end = startOfDayUtc(now);
   const windowEnd = end;
   const windowStart = addDaysUtc(windowEnd, -(windowDays - 1));
@@ -331,19 +381,18 @@ export function computeAnalyticsPeriods({ now = new Date(), windowDays = 30, bas
 }
 
 export async function buildEmployeeAnalyticsPayload(employee, periods) {
-  const {
-    windowStart,
-    windowEnd,
-    baselineStart,
-    baselineEnd,
-  } = periods;
+  const { windowStart, windowEnd, baselineStart, baselineEnd } = periods;
 
   const windowDates = enumerateDatesUtc(windowStart, windowEnd);
   const baselineDates = enumerateDatesUtc(baselineStart, baselineEnd);
 
   const [attendanceWindow, attendanceBaseline] = await Promise.all([
     getAttendanceMap(employee._id, toYmdUtc(windowStart), toYmdUtc(windowEnd)),
-    getAttendanceMap(employee._id, toYmdUtc(baselineStart), toYmdUtc(baselineEnd)),
+    getAttendanceMap(
+      employee._id,
+      toYmdUtc(baselineStart),
+      toYmdUtc(baselineEnd),
+    ),
   ]);
 
   const [leavesWindow, leavesBaseline] = await Promise.all([
@@ -373,9 +422,18 @@ export async function buildEmployeeAnalyticsPayload(employee, periods) {
   });
 
   const deltas = {
-    attendanceRate: safeDeltaPercent(windowComputed.metrics.attendanceRate, baselineComputed.metrics.attendanceRate),
-    taskCompletionRate: safeDeltaPercent(windowComputed.metrics.taskCompletionRate, baselineComputed.metrics.taskCompletionRate),
-    taskVelocityPerWeek: safeDeltaPercent(windowComputed.metrics.taskVelocityPerWeek, baselineComputed.metrics.taskVelocityPerWeek),
+    attendanceRate: safeDeltaPercent(
+      windowComputed.metrics.attendanceRate,
+      baselineComputed.metrics.attendanceRate,
+    ),
+    taskCompletionRate: safeDeltaPercent(
+      windowComputed.metrics.taskCompletionRate,
+      baselineComputed.metrics.taskCompletionRate,
+    ),
+    taskVelocityPerWeek: safeDeltaPercent(
+      windowComputed.metrics.taskVelocityPerWeek,
+      baselineComputed.metrics.taskVelocityPerWeek,
+    ),
   };
 
   const { performanceScore, riskScore, riskLevel } = computePerformanceAndRisk({
@@ -429,7 +487,7 @@ export async function computeAndCacheInsights({
   const periods = computeAnalyticsPeriods({ now, windowDays, baselineDays });
 
   const employees = await User.find({ role: "employee" }).select(
-    "name email employeeId department jobTitle role"
+    "name email employeeId department jobTitle role",
   );
   if (!employees || employees.length === 0) return { computed: 0 };
 
@@ -439,12 +497,18 @@ export async function computeAndCacheInsights({
   }
 
   const enrichedForAi = payloads.map((p) => ({
+    employeeId: p.employee._id.toString(),
     name: p.employee.name,
     department: p.employee.department,
     jobTitle: p.employee.jobTitle,
+
     performance_score: p.performance.score,
     risk_score: p.performance.risk_score,
     risk_level: p.performance.risk_level,
+
+    // ✅ ADD THIS LINE
+    category: getCategory(p),
+
     window: p.metrics.window,
     baseline: p.metrics.baseline,
     deltas: p.metrics.deltas,
@@ -458,23 +522,34 @@ export async function computeAndCacheInsights({
     if (Array.isArray(batchInsights)) allInsights.push(...batchInsights);
   }
 
-  const insightsByName = new Map();
+  const insightsById = new Map();
   for (const item of allInsights) {
-    if (item?.name) insightsByName.set(item.name, item.insight);
+    if (item?.employeeId) {
+      insightsById.set(item.employeeId, item.insight);
+    }
   }
+  
 
   const expiresAt = addDaysUtc(periods.windowEnd, ttlDays);
 
   let computed = 0;
   for (const p of payloads) {
-    const insight = insightsByName.get(p.employee.name) || buildFallbackInsight(p);
+    const aiInsight = insightsById.get(p.employee._id.toString());
+
+    if (!aiInsight) {
+      console.log("⚠️ AI failed, keeping previous insight:", p.employee.name);
+      continue; // 🚀 SKIP update
+    }
+
+    const insight = aiInsight;
     const doc = {
       employee: p.employee._id,
       periodStart: periods.windowStart,
       periodEnd: periods.windowEnd,
       windowDays: periods.windowDays,
       baselineDays: periods.baselineDays,
-      promptVersion: "v2-sliding-window",
+
+      promptVersion: "v1",
       performance: {
         score: p.performance.score,
         riskScore: p.performance.risk_score,
@@ -496,10 +571,10 @@ export async function computeAndCacheInsights({
         employee: p.employee._id,
         periodStart: periods.windowStart,
         periodEnd: periods.windowEnd,
-        promptVersion: "v2-sliding-window",
+        promptVersion: "v1",
       },
       { $set: doc },
-      { upsert: true }
+      { upsert: true },
     );
     computed += 1;
   }
@@ -509,4 +584,3 @@ export async function computeAndCacheInsights({
     period: periods,
   };
 }
-

@@ -92,6 +92,8 @@ app.use("/api/company-network", companyNetworkRouter);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/bot", botRouter);
 
+
+
 const frontendDistPath = path.resolve(__dirname, "../frontend/dist");
 if (fs.existsSync(frontendDistPath)) {
   app.use(express.static(frontendDistPath));

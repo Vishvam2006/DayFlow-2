@@ -41,81 +41,21 @@ function mapDocToResponse(d) {
 
 export const getAnalytics = async (req, res) => {
   try {
-    const now = new Date();
     const windowDays = Number(req.query.windowDays || 30);
     const baselineDays = Number(req.query.baselineDays || 90);
 
-    const periods = computeAnalyticsPeriods({ now, windowDays, baselineDays });
 
-    let docs = await AnalyticsInsight.find({
-      periodStart: periods.windowStart,
-      periodEnd: periods.windowEnd,
-      windowDays: periods.windowDays,
-      baselineDays: periods.baselineDays,
-      promptVersion: "v2-sliding-window",
-    })
-      .populate("employee", "name email employeeId department jobTitle")
-      .lean();
+    // ⚡ Return existing data immediately
+    const docs = await AnalyticsInsight.find({
+      windowDays,
+      baselineDays,
+      promptVersion: "v1",
+    }).populate("employee");
 
-    if (!docs || docs.length === 0) {
-      const latestDoc = await AnalyticsInsight.findOne({
-        windowDays: periods.windowDays,
-        baselineDays: periods.baselineDays,
-        promptVersion: "v2-sliding-window",
-      })
-        .sort({ periodEnd: -1 })
-        .select("periodStart periodEnd")
-        .lean();
+    return res.json(docs.map(mapDocToResponse));
 
-      if (latestDoc) {
-        docs = await AnalyticsInsight.find({
-          periodStart: latestDoc.periodStart,
-          periodEnd: latestDoc.periodEnd,
-          windowDays: periods.windowDays,
-          baselineDays: periods.baselineDays,
-          promptVersion: "v2-sliding-window",
-        })
-          .populate("employee", "name email employeeId department jobTitle")
-          .lean();
-      }
-    }
-
-    const response = (docs || []).map(mapDocToResponse);
-
-    if (response.length > 0) {
-      return res.status(200).json(response);
-    }
-
-    // Fast fallback: return employee list with pending analysis (no heavy compute).
-    const users = await User.find({ role: "employee" }).select(
-      "name email employeeId department jobTitle role"
-    );
-
-    const pending = (users || []).map((u) => ({
-      _id: u._id,
-      name: u.name,
-      email: u.email,
-      employeeId: u.employeeId || "",
-      department: u.department || "",
-      jobTitle: u.jobTitle || "",
-      performance_score: 0,
-      risk_score: 0,
-      risk_level: "Low",
-      metrics: {},
-      insight: defaultInsight,
-      period: {
-        windowDays: periods.windowDays,
-        baselineDays: periods.baselineDays,
-        periodStart: periods.windowStart,
-        periodEnd: periods.windowEnd,
-        computedAt: null,
-        expiresAt: null,
-      },
-    }));
-
-    return res.status(200).json(pending);
   } catch (err) {
-    console.error("[AnalyticsController] Error:", err.message);
+    console.error(err);
     return res.status(500).json({ message: err.message });
   }
 };
@@ -135,7 +75,7 @@ export const getEmployeeAnalytics = async (req, res) => {
       periodEnd: periods.windowEnd,
       windowDays: periods.windowDays,
       baselineDays: periods.baselineDays,
-      promptVersion: "v2-sliding-window",
+      promptVersion: "v1",
     })
       .populate("employee", "name email employeeId department jobTitle")
       .lean();
@@ -145,7 +85,7 @@ export const getEmployeeAnalytics = async (req, res) => {
         employee: employeeId,
         windowDays: periods.windowDays,
         baselineDays: periods.baselineDays,
-        promptVersion: "v2-sliding-window",
+        promptVersion: "v1",
       })
         .sort({ periodEnd: -1 })
         .populate("employee", "name email employeeId department jobTitle")
@@ -155,7 +95,7 @@ export const getEmployeeAnalytics = async (req, res) => {
     if (doc) return res.status(200).json(mapDocToResponse(doc));
 
     const user = await User.findById(employeeId).select(
-      "name email employeeId department jobTitle role"
+      "name email employeeId department jobTitle role",
     );
     if (!user) return res.status(404).json({ message: "Employee not found" });
 
@@ -191,12 +131,15 @@ export const recomputeAnalyticsNow = async (req, res) => {
     const windowDays = Number(req.body?.windowDays || 30);
     const baselineDays = Number(req.body?.baselineDays || 90);
 
-    computeAndCacheInsights({
+    await computeAndCacheInsights({
       now: new Date(),
       windowDays,
       baselineDays,
     }).catch((err) => {
-      console.error("[AnalyticsController] Recompute failed:", err?.message || err);
+      console.error(
+        "[AnalyticsController] Recompute failed:",
+        err?.message || err,
+      );
     });
 
     return res.status(202).json({
